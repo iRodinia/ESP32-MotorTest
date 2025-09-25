@@ -4,7 +4,7 @@ A Repository for BLDC Test and Data Collection with ESP32 Controller
 
 
 
-# Flash BL-32 ESC Firmware (Arduino Nano)
+## Flash BL-32 ESC Firmware (Arduino Nano)
 
 0. Prepare a Arduino Nano board to serve as the connection interface between PC and ESC:
 ![arduino-nano-flash-esc](.\\README_resources\\arduino-nano-flash-esc.jpg "Picture of the Arduino Nano")
