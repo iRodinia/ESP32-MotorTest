@@ -1,17 +1,16 @@
+
 # ESP32-MotorTest
+
 A Repository for BLDC Test and Data Collection with ESP32 Controller
 
-
-
-
-## Flash BL-32 ESC Firmware (Arduino Nano)
+## Flash BL-32 ESC Firmware (with Arduino Nano)
 
 0. Prepare a Arduino Nano board to serve as the connection interface between PC and ESC:
 ![arduino-nano-flash-esc](.\\README_resources\\arduino-nano-flash-esc.jpg "Picture of the Arduino Nano")
 
     Pay attention to the port definitions.
 
-1. Connect the Arduino board to the computer with the USB cable, then open the "BLHeliSuit32Test" program. 
+1. Connect the Arduino board to the computer with the USB cable, then open the "BLHeliSuit32Test" program.
 
     You can find a copy of the program in this repository, under the "Tools" folder.
 
@@ -36,6 +35,22 @@ A Repository for BLDC Test and Data Collection with ESP32 Controller
 
     Click "Read Setup" and wait for the configurations to be loaded. Then you can make adjustments and click "Write Setup" to refresh the ESC. The descriptions of these setups can be found at "BLHeli_32_Info->manual.pdf".
 
-    Important: If you want to collect the voltage, current, temperature or rotation speed from the ESC, make sure to turn "Auto Telemetry" to "On"! (Then the ESC will send back the data once every 32ms) The data is sent through the "Tx" port of the ESC.
+    **Important**: If you want to collect the voltage, current, temperature or rotation speed from the ESC, make sure to turn "Auto Telemetry" to "On"! (Then the ESC will send back the data once every 32ms) The data is sent through the "Tx" port of the ESC.
 
     If multiple ESCs are used, all the "Tx"s can be connected together to one "Rx" port on the Autopilot or the Microcontroller.
+
+## ESP32 Settings
+
+Overview of the ESP32-Wroom-DA module:
+![read_setup](.\\README_resources\\ESP32WROOMDA_pins.png "Picture of the ESP32 Pins assignments")
+
+- Devices Connection
+
+  1. **SD card reader**: CS-5, SCK-18, MOSI-23, MISO-19
+  2. **OLED Screen**: SCL-22, SDA-21
+  3. **BLHeli32 ESC**: Tx-16, Dshot-13
+
+- Arduino Libraries Needed
+  
+  1. **SD** by Arduino;
+  2. **NTPClient** by Fabrice Weinberg; **Time** by Michael Margolis;

@@ -6,9 +6,10 @@
 #include <SD.h>
 #include <SPI.h>
 
+// ESP32WroomDA module default pin assignments:
+// sck = 18; miso = 19; mosi = 23; cs = 5;
 
 class SDCard {
-
 public:
   SDCard();
   SDCard(int8_t sck, int8_t miso, int8_t mosi, int8_t cs);
@@ -23,7 +24,6 @@ private:
   String _file_name = "default_file";
   String _file_path = "/default_folder/default_file.txt";
   fs::FS _fs;
-
 };
 
 SDCard::SDcard(){
@@ -87,6 +87,11 @@ int SDCard::create_file(String file_name, String head_line){
 }
 
 int SDCard::record(String message){
+  if(!_file_created){
+    Serial.println("Log file not created. Log failed.");
+    return -1;
+  }
+
   File myfile = _fs.open(_file_path, FILE_APPEND);
   if(!myfile.println(message)){
     Serial.println("Log failed unexpected.");
