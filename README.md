@@ -42,7 +42,7 @@ A Repository for BLDC Test and Data Collection with ESP32 Controller
 ## ESP32 Settings
 
 Overview of the ESP32-Wroom-DA module:
-![read_setup](.\\README_resources\\ESP32WROOMDA_pins.png "Picture of the ESP32 Pins assignments")
+![ESP32WROOMDA_pins](.\\README_resources\\ESP32WROOMDA_pins.png "Picture of the ESP32 Pins assignments")
 
 - Devices Connection
 
@@ -54,3 +54,11 @@ Overview of the ESP32-Wroom-DA module:
   
   1. **SD** by Arduino;
   2. **NTPClient** by Fabrice Weinberg; **Time** by Michael Margolis;
+
+- Arduino IDE Settings
+
+  ![arduino_ide_settings](.\\README_resources\\arduino_ide_settings.png "Picture of the Arduino IDE settings")
+
+  Pay attention that **Flash Mode** is set to **DIO**
+
+  

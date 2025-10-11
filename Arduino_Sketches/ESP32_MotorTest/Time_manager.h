@@ -18,7 +18,6 @@ private:
   bool timer_avaliable = false;
   unsigned long localStartTimeMs = 0;
   NTPClientPt* timeSyncPt;
-
 };
 
 MyTimer::MyTimer(const WiFiUDP &myudp){
