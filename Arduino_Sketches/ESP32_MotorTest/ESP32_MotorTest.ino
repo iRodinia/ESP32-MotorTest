@@ -2,6 +2,7 @@
 
 #include "SD_manager.h"
 #include "Time_manager.h"
+#include "12864_display.h"
 
 const char* ssid = "BioInBot_Lab";
 const char* password = "11223344";
