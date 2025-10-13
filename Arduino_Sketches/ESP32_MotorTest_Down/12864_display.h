@@ -7,9 +7,9 @@
 #include <SPI.h>
 #include "12864_font.h"
 
-// ESP32-WROOM-DA: SCL GPIO22, SDA GPIO21
-#define SCL_Pin 22
-#define SDA_Pin 21
+// Software IIC Port
+#define SCL_Pin 33
+#define SDA_Pin 32
 
 #define OLED_SCLK_Clr() digitalWrite(SCL_Pin,LOW)
 #define OLED_SCLK_Set() digitalWrite(SCL_Pin,HIGH)
@@ -62,6 +62,7 @@ class MyDisplay {
 public:
   MyDisplay();  // init the display
   void OLED_Clear(void);  // clear display
+  void OLED_UpdateRam(void);  // upload the strings to RAM
   void OLED_Refresh(void);  // upload the buffer to OLED
   void OLED_ColorTurn(uint8_t i);  // set the color (normal or reverse)
   void OLED_DisplayTurn(uint8_t i);  // set the direction (normal or 180 deg reverse)
@@ -89,6 +90,8 @@ private:
   void OLED_WR_BP(uint8_t x,uint8_t y);  // set start position of writing oled buffer
 
   myI2C _i2c_port;
+  Sting _line1, _line2, _line3, _line4;
+  bool _checkbox;
 };
 
 MyDisplay::MyDisplay(){
@@ -154,48 +157,32 @@ void MyDisplay::set_Line1(String line1){
   if(line1.length() > 18){
     line1 = line1.substring(0, 18);
   }
-  OLED_ShowString(0, 1, line1.c_str(), 12);
-  OLED_DrawLine(0,15,128,15);
+  _line1 = line1;
 }
 
 void MyDisplay::set_Line2(String line2){
   if(line2.length() > 16){
     line2 = line2.substring(0, 16);
   }
-  OLED_ShowString(0, 16, line2.c_str(), 16);
+  _line2 = line2;
 }
 
 void MyDisplay::set_Line3(String line3){
   if(line3.length() > 16){
     line3 = line3.substring(0, 16);
   }
-  OLED_ShowString(0, 32, line3.c_str(), 16);
+  _line3 = line3;
 }
 
 void MyDisplay::set_Line4(String line4){
   if(line4.length() > 21){
     line4 = line4.substring(0, 21);
   }
-  OLED_ShowString(0, 51, line4.c_str(), 12);
-  OLED_DrawLine(0,49,128,49);
+  _line4 = line4;
 }
 
 void MyDisplay::set_Checkbox(bool flag){
-  if(!flag){
-    uint8_t i,j;
-    for(i=109;i<128;i++){
-      for(j=0;j<15;j++){
-        OLED_ClearPoint(i,j);
-      }
-    }
-  }
-  else{
-    OLED_DrawCircle(117,6,3);
-    OLED_DrawCircle(117,6,2);
-    OLED_DrawCircle(117,6,1);
-    OLED_DrawPoint(117,6);
-  }
-  OLED_DrawCircle(117,6,5);
+  _checkbox = flag;
 }
 
 void MyDisplay::OLED_Refresh(void)
@@ -207,6 +194,30 @@ void MyDisplay::OLED_Refresh(void)
     OLED_WR_Byte(0x10,OLED_CMD);    // high column start addr
     for(n=0;n<128;n++)
       OLED_WR_Byte(OLED_GRAM[n][i],OLED_DATA);
+  }
+}
+
+void MyDisplay::OLED_UpdateRam(void){
+  uint8_t i,n;
+  for(i=0;i<8;i++){
+    for(n=0;n<128;n++){
+      OLED_GRAM[n][i]=0;  //clear all data
+    }
+  }
+  OLED_ShowString(0, 1, _line1.c_str(), 12);
+  OLED_DrawLine(0,15,128,15);
+  OLED_ShowString(0, 16, _line2.c_str(), 16);
+  OLED_ShowString(0, 32, _line3.c_str(), 16);
+  OLED_ShowString(0, 51, _line4.c_str(), 12);
+  OLED_DrawLine(0,49,128,49);
+  OLED_DrawCircle(117,6,5);
+  if(_checkbox){
+    uint8_t i,j;
+    for(i=116;i<=118;i++){
+      for(j=5;j<=7;j++){
+        OLED_DrawPoint(i,j);
+      }
+    }
   }
 }
 

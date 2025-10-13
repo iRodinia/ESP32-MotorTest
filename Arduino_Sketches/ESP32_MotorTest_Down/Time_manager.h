@@ -10,6 +10,7 @@ class MyTimer {
 public:
   MyTimer(const WiFiUDP &myudp);
   ~MyTimer();
+  bool getStatus();
   String getCurrentDateTime();
   unsigned long getLocalTimeMs();
   int resetTimer();
@@ -43,6 +44,10 @@ MyTimer::~MyTimer(){
   if(!timeSyncPt){
     delete(timeSyncPt);
   }
+}
+
+bool MyTimer::getStatus(){
+  return timer_avaliable;
 }
 
 String MyTimer::getCurrentDateTime(){

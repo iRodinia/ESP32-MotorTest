@@ -13,6 +13,7 @@ class SDCard {
 public:
   SDCard();
   SDCard(int8_t sck, int8_t miso, int8_t mosi, int8_t cs);
+  bool checkCardStatus();
   int set_folder_name(String folder_name);
   int create_file(String file_name, String head_line);
   int record(String message);
@@ -47,6 +48,10 @@ SDCard::SDCard(int8_t sck, int8_t miso, int8_t mosi, int8_t cs){
     return;
   }
   _card_mounted = true;
+}
+
+bool SDCard::checkCardStatus(){
+  return _card_mounted;
 }
 
 int SDCard::set_folder_name(Strign folder_name){

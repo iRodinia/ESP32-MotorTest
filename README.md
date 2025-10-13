@@ -6,6 +6,7 @@ A Repository for BLDC Test and Data Collection with ESP32 Controller
 ## Flash BL-32 ESC Firmware (with Arduino Nano)
 
 0. Prepare a Arduino Nano board to serve as the connection interface between PC and ESC:
+
 ![arduino-nano-flash-esc](.\\README_resources\\arduino-nano-flash-esc.jpg "Picture of the Arduino Nano")
 
     Pay attention to the port definitions.
@@ -15,6 +16,7 @@ A Repository for BLDC Test and Data Collection with ESP32 Controller
     You can find a copy of the program in this repository, under the "Tools" folder.
 
 2. Program the Arduino to make the interface:
+
 ![make_interface](.\\README_resources\\make_interface.png "Picture of the Make interface session")
 
     Select "Nano w/ATmega328(old bootloader)", then make the 4way-interface. Make sure you have selected the right COM Port at the bottom of this page.
@@ -26,11 +28,13 @@ A Repository for BLDC Test and Data Collection with ESP32 Controller
     If your Arduino's port configuration is correct and ESC's input port is a 3-pin wire, you can directly plug the ESC to Arduino's "D3-D2-GND" ports without re-wiring.
 
 4. Select the interface in the "BLHeliSuit32Test" program:
+
 ![select_interface](.\\README_resources\\select_interface.png "Picture of the interface selection")
 
     Choose the interface as "4way-if", then click "Connect". Make sure you have selected the correct COM Port.
 
 5. Read the settings and Adjust:
+
 ![read_setup](.\\README_resources\\read_setup.png "Picture of the ESC setup")
 
     Click "Read Setup" and wait for the configurations to be loaded. Then you can make adjustments and click "Write Setup" to refresh the ESC. The descriptions of these setups can be found at "BLHeli_32_Info->manual.pdf".
@@ -42,6 +46,7 @@ A Repository for BLDC Test and Data Collection with ESP32 Controller
 ## ESP32 Settings
 
 Overview of the ESP32-Wroom-DA module:
+
 ![ESP32WROOMDA_pins](.\\README_resources\\ESP32WROOMDA_pins.png "Picture of the ESP32 Pins assignments")
 
 - Devices Connection
@@ -54,6 +59,7 @@ Overview of the ESP32-Wroom-DA module:
   
   1. **SD** by Arduino;
   2. **NTPClient** by Fabrice Weinberg; **Time** by Michael Margolis;
+  3. **Adafruit MPU6050** by Adafruit; **Adafruit HMC5883 Unified** by Adafruit; **Adafruit BMP085 Library** by Adafruit;
 
 - Arduino IDE Settings
 
