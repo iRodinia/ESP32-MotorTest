@@ -15,7 +15,7 @@
 // Must connect to the default hardware I2C pins: Wire1
 // Software I2C is not allowed
 
-class myIMU {
+class MyIMU {
 public:
   bool init();
   int readTemperatureRaw(float& temp);  // in Celsius
@@ -40,7 +40,7 @@ private:
   float _acc_x_bias, _acc_y_bias, _acc_z_bias, _gyr_x_bias, _gyr_y_bias, _gyr_z_bias;
 };
 
-bool myIMU::init(){
+bool MyIMU::init(){
   _imu_initialized = false;
   bool bmp_flag = _my_barometer.begin();
   if(!bmp_flag){
@@ -87,12 +87,12 @@ bool myIMU::init(){
   return true;
 }
 
-int myIMU::setDeclinationAngle(float dec_rad){
+int MyIMU::setDeclinationAngle(float dec_rad){
   _dec_angle_rad = dec_rad;
   return 0;
 }
 
-int myIMU::calibrateMPU6050(){
+int MyIMU::calibrateMPU6050(){
   if(!_imu_initialized){
     return -1;
   }
@@ -124,11 +124,11 @@ int myIMU::calibrateMPU6050(){
   return 0;
 }
 
-bool myIMU::checkInitStatus(){
+bool MyIMU::checkInitStatus(){
   return _imu_initialized;
 }
 
-int myIMU::readTemperatureRaw(float& temp){
+int MyIMU::readTemperatureRaw(float& temp){
   if(!_imu_initialized){
     return -1;
   }
@@ -136,7 +136,7 @@ int myIMU::readTemperatureRaw(float& temp){
   return 0;
 }
 
-int myIMU::readPressureRaw(float& pre){
+int MyIMU::readPressureRaw(float& pre){
   if(!_imu_initialized){
     return -1;
   }
@@ -144,7 +144,7 @@ int myIMU::readPressureRaw(float& pre){
   return 0;
 }
 
-int myIMU::readAltitudeRaw(float& alt){
+int MyIMU::readAltitudeRaw(float& alt){
   if(!_imu_initialized){
     return -1;
   }
@@ -152,7 +152,7 @@ int myIMU::readAltitudeRaw(float& alt){
   return 0;
 }
 
-int myIMU::readAccelerationRaw(float& x, float& y, float& z){
+int MyIMU::readAccelerationRaw(float& x, float& y, float& z){
   if(!_imu_initialized){
     return -1;
   }
@@ -164,7 +164,7 @@ int myIMU::readAccelerationRaw(float& x, float& y, float& z){
   return 0;
 }
 
-int myIMU::readGyroRaw(float& x, float& y, float& z){
+int MyIMU::readGyroRaw(float& x, float& y, float& z){
   if(!_imu_initialized){
     return -1;
   }
@@ -176,7 +176,7 @@ int myIMU::readGyroRaw(float& x, float& y, float& z){
   return 0;
 }
 
-int myIMU::readMagnetRaw(float& x, float& y, float& z){
+int MyIMU::readMagnetRaw(float& x, float& y, float& z){
   if(!_imu_initialized){
     return -1;
   }
@@ -188,7 +188,7 @@ int myIMU::readMagnetRaw(float& x, float& y, float& z){
   return 0;
 }
 
-int myIMU::getHeadingAngleDegRaw(float& ang_deg){
+int MyIMU::getHeadingAngleDegRaw(float& ang_deg){
   if(!_imu_initialized){
     return -1;
   }
