@@ -17,7 +17,7 @@
 
 class myIMU {
 public:
-  myIMU();
+  bool init();
   int readTemperatureRaw(float& temp);  // in Celsius
   int readPressureRaw(float& pre);  // in Pa
   int readAltitudeRaw(float& alt);  // in meters
@@ -40,7 +40,7 @@ private:
   float _acc_x_bias, _acc_y_bias, _acc_z_bias, _gyr_x_bias, _gyr_y_bias, _gyr_z_bias;
 };
 
-myIMU::myIMU(){
+bool myIMU::init(){
   _imu_initialized = false;
   bool bmp_flag = _my_barometer.begin();
   if(!bmp_flag){
@@ -75,7 +75,7 @@ myIMU::myIMU(){
   _imu_initialized = bmp_flag && motion_flag && mag_flag;
   if(!_imu_initialized){
     Serial.println("IMU module initialization failed.");
-    return;
+    return false;
   }
   setDeclinationAngle(0.057);
   _acc_x_bias = 0;
@@ -84,6 +84,7 @@ myIMU::myIMU(){
   _gyr_x_bias = 0;
   _gyr_y_bias = 0;
   _gyr_z_bias = 0;
+  return true;
 }
 
 int myIMU::setDeclinationAngle(float dec_rad){

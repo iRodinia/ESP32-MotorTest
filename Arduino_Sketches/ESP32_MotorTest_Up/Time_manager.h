@@ -8,8 +8,9 @@
 
 class MyTimer {
 public:
-  MyTimer(const WiFiUDP &myudp);
+  MyTimer(){};
   ~MyTimer();
+  bool init(const WiFiUDP &myudp);
   bool getStatus();
   String getCurrentDateTime();
   unsigned long getLocalTimeMs();
@@ -21,12 +22,12 @@ private:
   NTPClientPt* timeSyncPt;
 };
 
-MyTimer::MyTimer(const WiFiUDP &myudp){
+bool MyTimer::init(const WiFiUDP &myudp){
   timeSyncPt = new NTPClientPt(myudp, "pool.ntp.org", 28800);  // GMT+8
   if(timeSyncPt == nullptr){
     Serial.println("Initialize local timer failed.");
     timer_avaliable = false;
-    return;
+    return false;
   }
   Serial.println("Local timer initialized. Wait for sync.");
   timeSyncPt->begin();
@@ -38,6 +39,7 @@ MyTimer::MyTimer(const WiFiUDP &myudp){
   Serial.println("\nLocal timer synced.");
   localStartTimeMs = millis();
   timer_avaliable = true;
+  return true;
 }
 
 MyTimer::~MyTimer(){

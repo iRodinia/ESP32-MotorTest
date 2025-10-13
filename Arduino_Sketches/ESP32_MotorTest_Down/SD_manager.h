@@ -13,6 +13,7 @@ class SDCard {
 public:
   SDCard();
   SDCard(int8_t sck, int8_t miso, int8_t mosi, int8_t cs);
+  bool init();
   bool checkCardStatus();
   int set_folder_name(String folder_name);
   int create_file(String file_name, String head_line);
@@ -20,6 +21,7 @@ public:
   int clear_logs(String folder_path = "/" + _folder_name);
 
 private:
+  uint8_t _sck, _miso, _mosi, _cs;
   bool reassign_pins = false;
   bool _card_mounted = false;
   bool _file_created = false;
@@ -30,24 +32,33 @@ private:
 
 SDCard::SDcard(){
   reassign_pins = false;
-  if(!SD.begin()){
-    Serial.println("Card mount failed");
-    _card_mounted = false;
-    return;
-  }
-  _card_mounted = true;
 }
 
-SDCard::SDCard(int8_t sck, int8_t miso, int8_t mosi, int8_t cs){
+SDCard::SDCard(uint8_t sck, uint8_t miso, uint8_t mosi, uint8_t cs){
   reassign_pins = true;
-  SPI.begin(sck, miso, mosi, cs);
-  SPI.setFrequency(4000000);
-  if (!SD.begin(cs)) {
+  _sck = sck;
+  _miso = miso;
+  _mosi = mosi;
+  _cs = cs;
+}
+
+bool SDCard::init(){
+  bool init_flag;
+  if(reassign_pins){
+    SPI.begin(sck, miso, mosi, cs);
+    SPI.setFrequency(4000000);
+    init_flag = SD.begin(cs);
+  }
+  else{
+    init_flag = SD.begin();
+  }
+  if(!init_flag){
     Serial.println("Card mount failed");
     _card_mounted = false;
-    return;
+    return false;
   }
   _card_mounted = true;
+  return true;
 }
 
 bool SDCard::checkCardStatus(){

@@ -60,7 +60,7 @@ public:
 // Coordinates of the display is originated from up-left corner (0,0)
 class MyDisplay {
 public:
-  MyDisplay();  // init the display
+  bool init();  // init the display
   void OLED_Clear(void);  // clear display
   void OLED_UpdateRam(void);  // upload the strings to RAM
   void OLED_Refresh(void);  // upload the buffer to OLED
@@ -94,7 +94,7 @@ private:
   bool _checkbox;
 };
 
-MyDisplay::MyDisplay(){
+bool MyDisplay::init(){
   Serial.println("Start to initialize the 12864 display.");
   pinMode(scl, OUTPUT);
   pinMode(sda, OUTPUT);
@@ -133,6 +133,7 @@ MyDisplay::MyDisplay(){
   Serial.println("12864 display initialized.");
   set_Line1("IP:None");
   set_Checkbox(false);
+  return true;
 }
 
 void MyDisplay::OLED_ColorTurn(uint8_t i){

@@ -2,10 +2,17 @@
 #include <Wire.h>  // Must include Wire here, otherwise all .h files won't include Wire
 
 #include "SD_manager.h"
-#include "Time_manager.h"
 #include "12864_display.h"
 #include "IMU_manager.h"
 #include "Serial_sender.h"
+
+/*
+MCU (down) Functionality:
+Measure the Z-axis acceleration; Estimate the Z-axis velocity;
+Record the data in SD card by 20Hz;
+Communicate with MCU (up) using UART, receive the start command and send the data;
+Display the real-time data on the screen.
+*/
 
 const char* ssid = "BioInBot_Lab";
 const char* password = "11223344";
