@@ -47,6 +47,8 @@ void setup(){
     delay(10);
 
   Init_Data_Serial();  // Rx-16, Tx-17
+
+  Wire.setClock(400000);
   
   Serial.printf("\n");
   Serial.println("##### Start the Data Recording Board (Down) #####");
