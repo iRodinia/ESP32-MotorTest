@@ -25,6 +25,7 @@ public:
   int readGyroRaw(float& x, float& y, float& z);  // in rad/s
   int readMagnetRaw(float& x, float& y, float& z);  // in μT
   int getHeadingAngleDegRaw(float& ang_deg);  // in deg
+  void setMpuBias(float dax, float day, float daz, float dgz, float dgy, float dgz);
 
   int calibrateMPU6050();  // must be called in the setup() function
   int setDeclinationAngle(float dec_rad);  // find from http://www.magnetic-declination.com/, if get -x(W), then dec=x here
@@ -78,13 +79,17 @@ bool MyIMU::init(){
     return false;
   }
   setDeclinationAngle(0.057);
-  _acc_x_bias = 0;
-  _acc_y_bias = 0;
-  _acc_z_bias = 0;
-  _gyr_x_bias = 0;
-  _gyr_y_bias = 0;
-  _gyr_z_bias = 0;
+  setMpuBias(0, 0, 0, 0, 0, 0);
   return true;
+}
+
+void MyIMU::setMpuBias(float dax, float day, float daz, float dgz, float dgy, float dgz){
+  _acc_x_bias = dax;
+  _acc_y_bias = day;
+  _acc_z_bias = daz;
+  _gyr_x_bias = dgx;
+  _gyr_y_bias = dgy;
+  _gyr_z_bias = dgz;
 }
 
 int MyIMU::setDeclinationAngle(float dec_rad){
@@ -109,12 +114,8 @@ int MyIMU::calibrateMPU6050(){
     sumgZ += g.gyro.z;
     delay(10);
   }
-  _acc_x_bias = sumaX / samples;
-  _acc_y_bias = sumaY / samples;
-  _acc_z_bias = sumaZ / samples;
-  _gyr_x_bias = sumgX / samples;
-  _gyr_y_bias = sumgY / samples;
-  _gyr_z_bias = sumgZ / samples;
+  setMpuBias(sumaX / samples, sumaY / samples, sumaZ / samples,
+    sumgX / samples, sumgY / samples, sumgZ / samples);
   Serial.println("MPU6050 calibration result:");
   Serial.printf("dAccx:%.2f, dAccy:%.2f, dAccz:%.2f; dGyrx:%.2f, dGyry:%.2f, dGyrz:%.2f \n", 
     _acc_x_bias, _acc_y_bias, _acc_z_bias, _gyr_x_bias, _gyr_y_bias, _gyr_z_bias);

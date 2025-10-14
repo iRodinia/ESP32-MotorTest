@@ -84,6 +84,7 @@ void setup(){
   timerAttachInterrupt(timer, &onTimer);
   timerStart(timer);
 
+  /*
   myscreen.set_Line2("Calibrating");
   myscreen.set_Line3("Hold Still!");
   myscreen.set_Line4(" ");
@@ -92,6 +93,7 @@ void setup(){
 
   myscreen.set_Line4("Done.");
   delay(300);
+  */
 
   myscreen.set_Line2("Acc: 0.00");
   myscreen.set_Line3("Vel: 0.00");
