@@ -60,6 +60,7 @@ Overview of the ESP32-Wroom-DA module:
   1. **SD** by Arduino;
   2. **NTPClient** by Fabrice Weinberg; **Time** by Michael Margolis;
   3. **Adafruit MPU6050** by Adafruit; **Adafruit HMC5883 Unified** by Adafruit; **Adafruit BMP085 Library** by Adafruit;
+  4. **EspSoftwareSerial** by Dirk Kaar and Peter Lerup
 
 - Arduino IDE Settings
 

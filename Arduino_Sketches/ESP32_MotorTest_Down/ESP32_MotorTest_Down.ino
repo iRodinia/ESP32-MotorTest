@@ -51,9 +51,19 @@ void setup(){
   Serial.printf("\n");
   Serial.println("##### Start the Data Recording Board (Down) #####");
   myscreen.init();
-  mysensor.init();
-  mysd.init();
-  delay(300);
+  delay(50);
+  int init_count = 0;
+  while(!mysd.checkCardStatus() && init_count < 20){
+    mysd.init();
+    delay(200);
+    init_count += 1;
+  }
+  init_count = 0;
+  while(!mysensor.checkInitStatus() && init_count < 20){
+    mysensor.init();
+    delay(200);
+    init_count += 1;
+  }
   if(!(mysd.checkCardStatus()&&mysensor.checkInitStatus())){
     Serial.println("Device initialization failed!");
     while(1);
@@ -63,11 +73,12 @@ void setup(){
   myscreen.set_Checkbox(false);
   delay(20);
 
-  timer = timerBegin(3);
+  timer = timerBegin(1000000);
   if(timer == NULL) {
     Serial.println("OLED Timer initialization failed!");
     while(1);
   }
+  timerAlarm(timer, 250000, true, 0);
   timerAttachInterrupt(timer, &onTimer);
   timerStart(timer);
 
@@ -96,7 +107,7 @@ void loop(){
     last_loop_local_time = millis();
     float ax, ay, az;
     if(mysensor.readAccelerationRaw(ax, ay, az) == 0){
-      temp_vel += az * _dt/1000;
+      temp_vel += az * _dt/1000;  // Vel 估计现在还有很大的问题
       if(file_created){
         String _glb_t = (timeStatus()==timeNotSet)? "N/A" : getCurrentHmsTime();
         String _lca_t = String(millis()-start_record_local_time);

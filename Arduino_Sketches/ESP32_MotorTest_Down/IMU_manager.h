@@ -115,6 +115,9 @@ int MyIMU::calibrateMPU6050(){
   _gyr_x_bias = sumgX / samples;
   _gyr_y_bias = sumgY / samples;
   _gyr_z_bias = sumgZ / samples;
+  Serial.println("MPU6050 calibration result:");
+  Serial.printf("dAccx:%.2f, dAccy:%.2f, dAccz:%.2f; dGyrx:%.2f, dGyry:%.2f, dGyrz:%.2f \n", 
+    _acc_x_bias, _acc_y_bias, _acc_z_bias, _gyr_x_bias, _gyr_y_bias, _gyr_z_bias);
   return 0;
 }
 
