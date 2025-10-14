@@ -7,6 +7,14 @@
 #include <SPI.h>
 #include "12864_font.h"
 
+// Software IIC Port
+#define SCL_Pin 33
+#define SDA_Pin 32
+
+#define OLED_SCLK_Clr() digitalWrite(SCL_Pin,LOW)
+#define OLED_SCLK_Set() digitalWrite(SCL_Pin,HIGH)
+#define OLED_SDIN_Clr() digitalWrite(SDA_Pin,LOW)
+#define OLED_SDIN_Set() digitalWrite(SDA_Pin,HIGH)
 #define OLED_CMD  0
 #define OLED_DATA 1
 
@@ -14,11 +22,6 @@ uint8_t OLED_GRAM[128][8]; // display buffer
 
 class myI2C {
 public:
-  void init(uint8_t scl, uint8_t sda){
-    _scl_pin = scl;
-    _sda_pin = sda;
-  }
-
   void I2C_Start(void){
     OLED_SDIN_Set();
     OLED_SCLK_Set();
@@ -52,20 +55,12 @@ public:
       dat<<=1;
     }
   }
-
-private:
-  uint8_t _scl_pin, _sda_pin;
-  void OLED_SCLK_Clr(){digitalWrite(_scl_pin, LOW);}
-  void OLED_SCLK_Set(){digitalWrite(_scl_pin, HIGH);}
-  void OLED_SDIN_Clr(){digitalWrite(_sda_pin, LOW);}
-  void OLED_SDIN_Set(){digitalWrite(_sda_pin, HIGH);}
 };
 
 // Coordinates of the display is originated from up-left corner (0,0)
 class MyDisplay {
 public:
-  MyDisplay(uint8_t scl=33, uint8_t sda=32);
-  bool init();  // init the display
+  MyDisplay();  // init the display
   void OLED_Clear(void);  // clear display
   void OLED_UpdateRam(void);  // upload the strings to RAM
   void OLED_Refresh(void);  // upload the buffer to OLED
@@ -95,21 +90,14 @@ private:
   void OLED_WR_BP(uint8_t x,uint8_t y);  // set start position of writing oled buffer
 
   myI2C _i2c_port;
-  uint8_t _scl, _sda;
-  String _line1, _line2, _line3, _line4;
+  Sting _line1, _line2, _line3, _line4;
   bool _checkbox;
 };
 
-MyDisplay::MyDisplay(uint8_t scl, uint8_t sda){
-  _scl = scl;
-  _sda = sda;
-}
-
-bool MyDisplay::init(){
+MyDisplay::MyDisplay(){
   Serial.println("Start to initialize the 12864 display.");
-  pinMode(_scl, OUTPUT);
-  pinMode(_sda, OUTPUT);
-  _i2c_port.init(_scl, _sda);
+  pinMode(scl, OUTPUT);
+  pinMode(sda, OUTPUT);
   delay(100);
 
   OLED_WR_Byte(0xAE,OLED_CMD);  //--turn off oled panel
@@ -145,7 +133,6 @@ bool MyDisplay::init(){
   Serial.println("12864 display initialized.");
   set_Line1("IP:None");
   set_Checkbox(false);
-  return true;
 }
 
 void MyDisplay::OLED_ColorTurn(uint8_t i){

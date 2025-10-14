@@ -5,7 +5,7 @@
 #include "SD_manager.h"
 #include "12864_display.h"
 #include "IMU_manager.h"
-#include "Serial_sender.h"
+#include "Serial_down_lib.h"
 
 /*
 MCU (down) Functionality:
@@ -20,18 +20,33 @@ MyDisplay myscreen;  // scl-33, sda-32
 MyIMU mysensor;  // scl-22, sda-21
 SDCard mysd(18, 19, 23, 5);
 
-uint32_t start_record_time = 0;
-uint32_t last_loop_time = 0;
-String curr_time_str = "";
+hw_timer_t *timer = NULL;
+unsigned long start_record_local_time = 0;
+
+void IRAM_ATTR onTimer() {
+  if(timeStatus() != timeNotSet){
+    myscreen.set_Line1("T:"+getCurrentHmsTime());
+  }
+  else{
+    if(data_sending){
+      unsigned long _cur_local_time_ms = millis() - start_record_local_time;
+      float _cur_time = _cur_local_time_ms / 1000;
+      myscreen.set_Line1("T:"+String(_cur_time, 2));
+    }
+    else{
+      myscreen.set_Line1("T:0");
+    }
+  }
+  myscreen.OLED_UpdateRam();
+  myscreen.OLED_Refresh();
+}
 
 void setup(){
   Serial.begin(115200);  // usb
   while (!Serial)
     delay(10);
 
-  Serial2.begin(115200);  // Rx-16, Tx-17
-  while(!Serial2)
-    delay(10);
+  Init_Data_Serial();  // Rx-16, Tx-17
   
   Serial.printf("\n");
   Serial.println("##### Start the Data Recording Board (Down) #####");
@@ -39,116 +54,70 @@ void setup(){
   mysensor.init();
   mysd.init();
   delay(300);
-  if(!(timer.getStatus()&&mysd.checkCardStatus()&&mysensor.checkInitStatus()&&myuart.getStatus())){
+  if(!(mysd.checkCardStatus()&&mysensor.checkInitStatus())){
     Serial.println("Device initialization failed!");
     while(1);
   }
   Serial.println("All modules initialized.");
-
-  Serial.println("Syncronizing time with MCU (up) through UART.");
-  myscreen.set_Line1("T:N/A");
-  myscreen.set_Line2("Syncing");
-  myscreen.set_Line3("Time...");
   myscreen.set_Line4(" ");
   myscreen.set_Checkbox(false);
-  myscreen.OLED_UpdateRam();
-  myscreen.OLED_Refresh();
+  delay(20);
 
-  setSyncProvider(serial2RequestSync);
-  setSyncInterval(60);
-  while(timeStatus() == timeNotSet){
-    while(!Serial2.avaliable())
-      delay(10);
-    unsigned long pctime;
-    const unsigned long DEFAULT_TIME = 1357041600;  // Jan 1 2013
-    if(Serial2.find("T")) {
-      pctime = Serial2.parseInt();
-      if(pctime >= DEFAULT_TIME) { // check the integer is a valid time (greater than Jan 1 2013)
-        setTime(pctime); // Sync Arduino clock to the time received on the serial port
-      }
-    }
-  }
-  
-  Serial.println("Time synchronized.");
-  myscreen.set_Line1("T:"+getCurrentHmsTime());
-  myscreen.set_Line4("Done.");
-  myscreen.OLED_UpdateRam();
-  myscreen.OLED_Refresh();
-  delay(300);
-
-  myscreen.set_Line1("T:"+getCurrentHmsTime());
-  myscreen.set_Line2("Creating");
-  myscreen.set_Line3("Log File...");
-  myscreen.set_Line4(" ");
-  myscreen.OLED_UpdateRam();
-  myscreen.OLED_Refresh();
-
-  String data_headline = "t vel_z acc_z";
-  mysd.set_folder_name(getCurrentDate());
-  int file_flag = mysd.create_file("MTest_"+getCurrentHmsTime(), data_headline);
-
-  if(file_flag < 0){
-    myscreen.set_Line1("T:"+getCurrentHmsTime());
-    myscreen.set_Line4("Failed!");
-    myscreen.OLED_UpdateRam();
-    myscreen.OLED_Refresh();
+  timer = timerBegin(3);
+  if(timer == NULL) {
+    Serial.println("OLED Timer initialization failed!");
     while(1);
   }
-  else{
-    myscreen.set_Line1("T:"+getCurrentHmsTime());
-    myscreen.set_Line4("Succeeded!");
-    myscreen.OLED_UpdateRam();
-    myscreen.OLED_Refresh();
-  }
-  delay(300);
+  timerAttachInterrupt(timer, &onTimer);
+  timerStart(timer);
 
-  myscreen.set_Line1("T:"+getCurrentHmsTime());
   myscreen.set_Line2("Calibrating");
   myscreen.set_Line3("Hold Still!");
   myscreen.set_Line4(" ");
-  myscreen.OLED_UpdateRam();
-  myscreen.OLED_Refresh();
 
   mysensor.calibrateMPU6050();
 
-  myscreen.set_Line1("T:"+getCurrentHmsTime());
   myscreen.set_Line4("Done.");
-  myscreen.OLED_UpdateRam();
-  myscreen.OLED_Refresh();
   delay(300);
 
-  myscreen.set_Line1("T:"+getCurrentHmsTime());
   myscreen.set_Line2("Acc: 0.00");
   myscreen.set_Line3("Vel: 0.00");
   myscreen.set_Line4("Pending...");
-  myscreen.OLED_UpdateRam();
-  myscreen.OLED_Refresh();
+
+  Send_Ready_Sgn();
 }
+
+static unsigned long last_loop_local_time = 0;
+float temp_vel = 0;
 
 void loop(){
-
-}
-
-time_t serial2RequestSync()
-{
-  Serial2.write("T_sync_req");  
-  return 0;
-}
-
-String getCurrentHmsTime(){
-  if(timeStatus() != timeNotSet){
-    char timeStr[8];
-    snprintf(timeStr, 8, "%02d:%02d:%02d", hour(), minute(), second());
-    return String(timeStr);
+  unsigned long _dt = millis() - last_loop_local_time;
+  if (_dt > 50) {
+    last_loop_local_time = millis();
+    float ax, ay, az;
+    if(mysensor.readAccelerationRaw(ax, ay, az) == 0){
+      temp_vel += az * _dt/1000;
+      if(file_created){
+        String _glb_t = (timeStatus()==timeNotSet)? "N/A" : getCurrentHmsTime();
+        String _lca_t = String(millis()-start_record_local_time);
+        mysd.record(_glb_t + " " + _lca_t + " " + String(az, 3) + " " + String(temp_vel, 3));
+      }
+      if(data_sending){
+        Serial2.printf("z-vel:%.3f,z-acc:%.3f\n", temp_vel, az);
+        myscreen.set_Checkbox(true);
+      }
+      myscreen.set_Line2("Acc:" + String(az, 3));
+      myscreen.set_Line3("Vel:" + String(temp_vel, 3));
+    }
   }
-  return "";
-}
 
-String getCurrentDate(){
-  if(timeStatus() != timeNotSet){
-    char timeStr[10];
-    snprintf(timeStr, 10, "%04d-%02d-%02d", year(), month(), day());
-    return String(timeStr);
+  if (Serial2.available()) {
+    Serial2Event();
   }
-  return "";
+  if(cmd_received){
+    String _command = up_cmd;
+    up_cmd = "";
+    cmd_received = false;
+    Process_Command(_command);
+  }
 }

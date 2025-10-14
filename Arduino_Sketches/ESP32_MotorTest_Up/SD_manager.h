@@ -11,16 +11,16 @@
 
 class SDCard {
 public:
-  SDCard(uint8_t sck=18, uint8_t miso=19, uint8_t mosi=23, uint8_t cs=5);
-  bool init();
+  SDCard();
+  SDCard(int8_t sck, int8_t miso, int8_t mosi, int8_t cs);
   bool checkCardStatus();
-  int set_folder_name(String folder_name = "default_folder");
-  int create_file(String head_line, String file_name = "default_file");
+  int set_folder_name(String folder_name);
+  int create_file(String file_name, String head_line);
   int record(String message);
-  int clear_logs(String folder_path = "/default_folder");
+  int clear_logs(String folder_path = "/" + _folder_name);
 
 private:
-  uint8_t _sck, _miso, _mosi, _cs;
+  bool reassign_pins = false;
   bool _card_mounted = false;
   bool _file_created = false;
   String _folder_name = "default_folder";
@@ -28,32 +28,33 @@ private:
   String _file_path = "/default_folder/default_file.txt";
 };
 
-SDCard::SDCard(uint8_t sck, uint8_t miso, uint8_t mosi, uint8_t cs){
-  _sck = sck;
-  _miso = miso;
-  _mosi = mosi;
-  _cs = cs;
-}
-
-bool SDCard::init(){
-  bool init_flag;
-  SPI.begin(_sck, _miso, _mosi, _cs);
-  SPI.setFrequency(4000000);
-  init_flag = SD.begin(_cs);
-  if(!init_flag){
+SDCard::SDcard(){
+  reassign_pins = false;
+  if(!SD.begin()){
     Serial.println("Card mount failed");
     _card_mounted = false;
-    return false;
+    return;
   }
   _card_mounted = true;
-  return true;
+}
+
+SDCard::SDCard(int8_t sck, int8_t miso, int8_t mosi, int8_t cs){
+  reassign_pins = true;
+  SPI.begin(sck, miso, mosi, cs);
+  SPI.setFrequency(4000000);
+  if (!SD.begin(cs)) {
+    Serial.println("Card mount failed");
+    _card_mounted = false;
+    return;
+  }
+  _card_mounted = true;
 }
 
 bool SDCard::checkCardStatus(){
   return _card_mounted;
 }
 
-int SDCard::set_folder_name(String folder_name){
+int SDCard::set_folder_name(Strign folder_name){
   if(folder_name.length() > 0){
     _folder_name = folder_name;
     return 0;
@@ -61,12 +62,9 @@ int SDCard::set_folder_name(String folder_name){
   return -1;
 }
 
-int SDCard::create_file(String head_line, String file_name){
+int SDCard::create_file(String file_name, String head_line){
   if(!_card_mounted){
     return -1;
-  }
-  if(_file_created){
-    return 0;
   }
 
   uint64_t card_free_space = (SD.totalBytes() - SD.usedBytes()) / (1024 * 1024);
@@ -78,9 +76,8 @@ int SDCard::create_file(String head_line, String file_name){
   }
   
   _file_path = "/" + _folder_name + "/" + file_name + ".txt";
-  while(SD.exists(_file_path.c_str())){
-    file_name += "+";
-    _file_path = "/" + _folder_name + "/" + file_name + ".txt";
+  if(SD.exists(_file_path.c_str())){
+    SD.remove(_file_path.c_str());
   }
   File myfile = SD.open(_file_path, FILE_WRITE, true);
   if (!myfile) {
@@ -115,7 +112,7 @@ int SDCard::record(String message){
   return 0;
 }
 
-int SDCard::clear_logs(String folder_path){
+int SDCard::clear_logs(String folder_path = "/" + _folder_name){
   if(!_card_mounted){
     return -1;
   }

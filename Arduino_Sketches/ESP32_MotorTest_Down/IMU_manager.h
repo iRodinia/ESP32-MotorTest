@@ -101,18 +101,12 @@ int MyIMU::calibrateMPU6050(){
   for (int i = 0; i < samples; i++) {
     sensors_event_t a, g, temp;
     _my_accelerometer.getEvent(&a, &g, &temp);
-    ax = a.acceleration.x;
-    ay = a.acceleration.y;
-    az = a.acceleration.z;
-    gx = g.gyro.x;
-    gy = g.gyro.y;
-    gz = g.gyro.z;
-    sumaX += ax;
-    sumaY += ay;
-    sumaZ += az;
-    sumgX += gx;
-    sumgY += gy;
-    sumgZ += gz;
+    sumaX += a.acceleration.x;
+    sumaY += a.acceleration.y;
+    sumaZ += a.acceleration.z;
+    sumgX += g.gyro.x;
+    sumgY += g.gyro.y;
+    sumgZ += g.gyro.z;
     delay(10);
   }
   _acc_x_bias = sumaX / samples;
