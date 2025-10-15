@@ -4,7 +4,7 @@
 
 #include "SD_manager.h"
 #include "12864_display.h"
-#include "IMU_manager.h"
+#include "IMU_GY87_manager.h"
 #include "IMU_Kalman_filter.h"
 #include "Serial_down_lib.h"
 
@@ -18,7 +18,7 @@ Display the real-time data on the screen.
 */
 
 MyDisplay myscreen;  // scl-33, sda-32
-MyIMU mysensor;  // scl-22, sda-21
+MyIMU_GY87 mysensor;  // scl-22, sda-21
 SDCard mysd(18, 19, 23, 5);  // sck = 18; miso = 19; mosi = 23; cs = 5;
 GY87_KalmanFilter myfilter;
 // Serial2： rx-16, tx-17
@@ -99,7 +99,6 @@ void setup(){
 static unsigned long lastRcdLocalTime = 0;
 uint32_t lastImuFastUpdate = 0;
 uint32_t lastImuSlowUpdate = 0;
-bool updateBMP = true;
 float lastAlt = 0;
 float lastMx = 0;
 float lastMy = 0;
@@ -128,16 +127,10 @@ void loop(){
     Serial.printf("Alt:%.2f \n", lastAlt);
   }
 
-  if(millis() - lastImuSlowUpdate > 21) {
+  if(millis() - lastImuSlowUpdate > 25) {
     lastImuSlowUpdate = millis();
-    if(updateBMP){
-      mysensor.readAltitudeRaw(lastAlt);
-      updateBMP = !updateBMP;
-    }
-    else{
-      mysensor.readMagnetRaw(lastMx, lastMy, lastMz);
-      updateBMP = !updateBMP;
-    }
+    mysensor.readAltitudeRaw(lastAlt);
+    mysensor.readMagnetRaw(lastMx, lastMy, lastMz);
   }
 
   uint32_t _dt = millis() - lastImuFastUpdate;
