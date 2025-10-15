@@ -32,6 +32,7 @@ public:
     
     // 重置滤波器
     void reset();
+    bool getInitStatus();
 
 private:
     // 状态向量 [x, y, z, vx, vy, vz, q0, q1, q2, q3, bx, by, bz]
@@ -73,13 +74,6 @@ private:
     void quaternionMultiply(float q1[4], float q2[4], float result[4]);
     void rotateVectorByQuaternion(float q[4], float v[3], float result[3]);
     
-    // 矩阵操作
-    void matrixMultiply(float A[][13], float B[][13], float C[][13], int n);
-    void matrixAdd(float A[][13], float B[][13], float C[][13], int n);
-    void matrixTranspose(float A[][13], float AT[][13], int rows, int cols);
-    void matrixIdentity(float I[][13], int n);
-    void matrixInverse3x3(float A[][3], float inv[][3]);
-    
     // 重力补偿
     void compensateGravity(float accel[3], float q[4], float accel_world[3]);
 };
@@ -103,6 +97,10 @@ GY87_KalmanFilter::GY87_KalmanFilter() {
         last_gyro[i] = 0.0f;
         last_accel[i] = 0.0f;
     }
+}
+
+bool GY87_KalmanFilter::getInitStatus(){
+    return initialized;
 }
 
 void GY87_KalmanFilter::init(float initial_altitude) {

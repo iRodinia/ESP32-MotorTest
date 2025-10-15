@@ -23,10 +23,6 @@ void Init_Data_Serial(){
   up_cmd.reserve(200);
 }
 
-void Send_Ready_Sgn(){
-  Serial.println("Mcu_rdy");
-}
-
 void IRAM_ATTR Serial2Event() {
   while (Serial2.available()) {
     char inChar = (char)Serial2.read();

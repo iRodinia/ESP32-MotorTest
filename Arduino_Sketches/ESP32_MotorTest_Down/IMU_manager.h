@@ -5,7 +5,7 @@
 #include <Adafruit_Sensor.h>
 #include <Adafruit_MPU6050.h>
 #include <Adafruit_BMP085.h>
-#include <Adafruit_HMC5883_U.h>
+#include "HMC5883L_Simple.h"
 
 // Driver for GY-87 module, a combination of 3 sensors: 
 // MPU6050 for acceleration and angular speed, HMC5883L for gesture and BMP085 for barometer and temperature
@@ -25,16 +25,15 @@ public:
   int readGyroRaw(float& x, float& y, float& z);  // in rad/s
   int readMagnetRaw(float& x, float& y, float& z);  // in μT
   int getHeadingAngleDegRaw(float& ang_deg);  // in deg
-  void setMpuBias(float dax, float day, float daz, float dgz, float dgy, float dgz);
+  void setMpuBias(float dax, float day, float daz, float dgx, float dgy, float dgz);
 
   int calibrateMPU6050();  // must be called in the setup() function
-  int setDeclinationAngle(float dec_rad);  // find from http://www.magnetic-declination.com/, if get -x(W), then dec=x here
   bool checkInitStatus();
 
 private:
   Adafruit_BMP085 _my_barometer;
   Adafruit_MPU6050 _my_accelerometer;
-  Adafruit_HMC5883_Unified _my_magnentometer;
+  HMC5883L_Simple _my_magnentometer;
 
   bool _imu_initialized = false;
   float _dec_angle_rad = 0.057;  // -3°16'(W) at HKUSTGZ, need to be added to the heading direction calculated
@@ -64,37 +63,29 @@ bool MyIMU::init(){
     Serial.println("Successfully loaded MPU6050.");
     delay(50);
   }
-  bool mag_flag = _my_magnentometer.begin();
-  if(!mag_flag){
-    Serial.println("Could not find a valid HMC5883L sensor, check wiring!");
-  }
-  else{
-    _my_magnentometer.setMagGain(HMC5883_MAGGAIN_1_3);  // check if enough to measure the magnetic field
-    Serial.println("Successfully loaded HMC5883L.");
-    delay(50);
-  }
-  _imu_initialized = bmp_flag && motion_flag && mag_flag;
+  _my_magnentometer.SetDeclination(3, 16, 'W');  //  -3°16' (W) find from http://www.magnetic-declination.com/
+  _my_magnentometer.SetSamplingMode(COMPASS_SINGLE);
+  _my_magnentometer.SetScale(COMPASS_SCALE_130);
+  _my_magnentometer.SetOrientation(COMPASS_HORIZONTAL_X_NORTH);
+  Serial.println("Successfully loaded HMC5883L.");
+  delay(50);
+
+  _imu_initialized = bmp_flag && motion_flag;
   if(!_imu_initialized){
     Serial.println("IMU module initialization failed.");
     return false;
   }
-  setDeclinationAngle(0.057);
   setMpuBias(0, 0, 0, 0, 0, 0);
   return true;
 }
 
-void MyIMU::setMpuBias(float dax, float day, float daz, float dgz, float dgy, float dgz){
+void MyIMU::setMpuBias(float dax, float day, float daz, float dgx, float dgy, float dgz){
   _acc_x_bias = dax;
   _acc_y_bias = day;
   _acc_z_bias = daz;
   _gyr_x_bias = dgx;
   _gyr_y_bias = dgy;
   _gyr_z_bias = dgz;
-}
-
-int MyIMU::setDeclinationAngle(float dec_rad){
-  _dec_angle_rad = dec_rad;
-  return 0;
 }
 
 int MyIMU::calibrateMPU6050(){
@@ -178,11 +169,7 @@ int MyIMU::readMagnetRaw(float& x, float& y, float& z){
   if(!_imu_initialized){
     return -1;
   }
-  sensors_event_t event; 
-  _my_magnentometer.getEvent(&event);
-  x = event.magnetic.x;
-  y = event.magnetic.y;
-  z = event.magnetic.z;
+  _my_magnentometer.GetMagneticFieldRaw(x, y, z);
   return 0;
 }
 
@@ -190,14 +177,7 @@ int MyIMU::getHeadingAngleDegRaw(float& ang_deg){
   if(!_imu_initialized){
     return -1;
   }
-  sensors_event_t event; 
-  _my_magnentometer.getEvent(&event);
-  float heading = atan2(event.magnetic.y, event.magnetic.x) + _dec_angle_rad;
-  if(heading < 0)
-    heading += 2*PI;
-  if(heading > 2*PI)
-    heading -= 2*PI;
-  ang_deg = heading * 180/M_PI;
+  ang_deg = _my_magnentometer.GetHeadingDegrees();
   return 0;
 }
 

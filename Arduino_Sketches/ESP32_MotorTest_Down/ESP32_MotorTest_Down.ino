@@ -5,6 +5,7 @@
 #include "SD_manager.h"
 #include "12864_display.h"
 #include "IMU_manager.h"
+#include "IMU_Kalman_filter.h"
 #include "Serial_down_lib.h"
 
 /*
@@ -18,7 +19,9 @@ Display the real-time data on the screen.
 
 MyDisplay myscreen;  // scl-33, sda-32
 MyIMU mysensor;  // scl-22, sda-21
-SDCard mysd(18, 19, 23, 5);
+SDCard mysd(18, 19, 23, 5);  // sck = 18; miso = 19; mosi = 23; cs = 5;
+GY87_KalmanFilter myfilter;
+// Serial2： rx-16, tx-17
 
 hw_timer_t *timer = NULL;
 unsigned long start_record_local_time = 0;
@@ -48,10 +51,12 @@ void setup(){
 
   Init_Data_Serial();  // Rx-16, Tx-17
 
-  Wire.setClock(400000);
-  
   Serial.printf("\n");
   Serial.println("##### Start the Data Recording Board (Down) #####");
+
+  Wire.setClock(100000);
+  //Serial.println("Set the I2C port to be 400kHz (fast mode).");
+  
   myscreen.init();
   delay(50);
   int init_count = 0;
@@ -83,47 +88,68 @@ void setup(){
   timerAlarm(timer, 250000, true, 0);
   timerAttachInterrupt(timer, &onTimer);
   timerStart(timer);
+  delay(20);
 
-  /*
-  myscreen.set_Line2("Calibrating");
-  myscreen.set_Line3("Hold Still!");
-  myscreen.set_Line4(" ");
+  myfilter.init(0.0);
 
-  mysensor.calibrateMPU6050();
-
-  myscreen.set_Line4("Done.");
-  delay(300);
-  */
-
-  myscreen.set_Line2("Acc: 0.00");
-  myscreen.set_Line3("Vel: 0.00");
   myscreen.set_Line4("Pending...");
-
-  Send_Ready_Sgn();
+  Serial.println("Data Recording Board (Down) Initialization Done.");
 }
 
-static unsigned long last_loop_local_time = 0;
-float temp_vel = 0;
+static unsigned long lastRcdLocalTime = 0;
+uint32_t lastImuFastUpdate = 0;
+uint32_t lastImuSlowUpdate = 0;
+bool updateBMP = true;
+float lastAlt = 0;
+float lastMx = 0;
+float lastMy = 0;
+float lastMz = 0;
 
 void loop(){
-  unsigned long _dt = millis() - last_loop_local_time;
-  if (_dt > 50) {
-    last_loop_local_time = millis();
-    float ax, ay, az;
-    if(mysensor.readAccelerationRaw(ax, ay, az) == 0){
-      temp_vel += az * _dt/1000;  // Vel 估计现在还有很大的问题
-      if(file_created){
-        String _glb_t = (timeStatus()==timeNotSet)? "N/A" : getCurrentHmsTime();
-        String _lca_t = String(millis()-start_record_local_time);
-        mysd.record(_glb_t + " " + _lca_t + " " + String(az, 3) + " " + String(temp_vel, 3));
-      }
-      if(data_sending){
-        Serial2.printf("z-vel:%.3f,z-acc:%.3f\n", temp_vel, az);
-        myscreen.set_Checkbox(true);
-      }
-      myscreen.set_Line2("Acc:" + String(az, 3));
-      myscreen.set_Line3("Vel:" + String(temp_vel, 3));
+  if (millis() - lastRcdLocalTime > 100) {
+    lastRcdLocalTime = millis();
+    float vx, vy, vz, ax, ay, az;
+    myfilter.getVelocity(vx, vy, vz);
+    myfilter.getAcceleration(ax, ay, az);
+    if(file_created){
+      String _glb_t = (timeStatus()==timeNotSet)? "N/A" : getCurrentHmsTime();
+      String _lca_t = String(millis()-start_record_local_time);
+      mysd.record(_glb_t + " " + _lca_t + " " + String(-az, 3) + " " + String(-vz, 3));  // -az and -vz is for the up direction
     }
+    if(data_sending){
+      Serial2.printf("z-vel:%.3f,z-acc:%.3f\n", -vz, -az);
+      myscreen.set_Checkbox(true);
+    }
+    myscreen.set_Line2("Acc:" + String(-az, 3));
+    myscreen.set_Line3("Vel:" + String(-vz, 3));
+
+
+    Serial.printf("Mx:%.2f, My:%.2f, Mz:%.2f \n", lastMx, lastMy, lastMz);
+    Serial.printf("Alt:%.2f \n", lastAlt);
+  }
+
+  if(millis() - lastImuSlowUpdate > 21) {
+    lastImuSlowUpdate = millis();
+    if(updateBMP){
+      mysensor.readAltitudeRaw(lastAlt);
+      updateBMP = !updateBMP;
+    }
+    else{
+      mysensor.readMagnetRaw(lastMx, lastMy, lastMz);
+      updateBMP = !updateBMP;
+    }
+  }
+
+  uint32_t _dt = millis() - lastImuFastUpdate;
+  if(_dt > 10) {
+    lastImuFastUpdate = millis();
+    float _dt_s = _dt / 1000.0f;
+    float ax = 0; float ay = 0; float az = 0;
+    float gx = 0; float gy = 0; float gz = 0;
+    mysensor.readAccelerationRaw(ax, ay, az);
+    mysensor.readGyroRaw(gx, gy, gz);
+    myfilter.update(ax, ay, az, gx, gy, gz,
+      lastMx, lastMy, lastMz, lastAlt, _dt_s);
   }
 
   if (Serial2.available()) {
