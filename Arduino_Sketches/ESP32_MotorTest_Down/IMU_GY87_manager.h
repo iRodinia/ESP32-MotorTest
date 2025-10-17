@@ -41,7 +41,7 @@ private:
   float _acc_x_bias, _acc_y_bias, _acc_z_bias, _gyr_x_bias, _gyr_y_bias, _gyr_z_bias;
 };
 
-bool MyIMU::init(){
+bool MyIMU_GY87::init(){
   _imu_initialized = false;
   bool bmp_flag = _my_barometer.begin();
   if(!bmp_flag){
@@ -83,7 +83,7 @@ bool MyIMU::init(){
   return true;
 }
 
-void MyIMU::setMpuBias(float dax, float day, float daz, float dgx, float dgy, float dgz)
+void MyIMU_GY87::setMpuBias(float dax, float day, float daz, float dgx, float dgy, float dgz)
 {
   _acc_x_bias = dax;
   _acc_y_bias = day;
@@ -93,12 +93,12 @@ void MyIMU::setMpuBias(float dax, float day, float daz, float dgx, float dgy, fl
   _gyr_z_bias = dgz;
 }
 
-int MyIMU::setDeclinationAngle(float dec_rad){
+int MyIMU_GY87::setDeclinationAngle(float dec_rad){
   _dec_angle_rad = dec_rad;
   return 0;
 }
 
-int MyIMU::calibrateMPU6050(){
+int MyIMU_GY87::calibrateMPU6050(){
   if(!_imu_initialized){
     return -1;
   }
@@ -123,11 +123,11 @@ int MyIMU::calibrateMPU6050(){
   return 0;
 }
 
-bool MyIMU::checkInitStatus(){
+bool MyIMU_GY87::checkInitStatus(){
   return _imu_initialized;
 }
 
-int MyIMU::readTemperatureRaw(float& temp){
+int MyIMU_GY87::readTemperatureRaw(float& temp){
   if(!_imu_initialized){
     return -1;
   }
@@ -135,7 +135,7 @@ int MyIMU::readTemperatureRaw(float& temp){
   return 0;
 }
 
-int MyIMU::readPressureRaw(float& pre){
+int MyIMU_GY87::readPressureRaw(float& pre){
   if(!_imu_initialized){
     return -1;
   }
@@ -143,7 +143,7 @@ int MyIMU::readPressureRaw(float& pre){
   return 0;
 }
 
-int MyIMU::readAltitudeRaw(float& alt){
+int MyIMU_GY87::readAltitudeRaw(float& alt){
   if(!_imu_initialized){
     return -1;
   }
@@ -151,7 +151,7 @@ int MyIMU::readAltitudeRaw(float& alt){
   return 0;
 }
 
-int MyIMU::readAccelerationRaw(float& x, float& y, float& z){
+int MyIMU_GY87::readAccelerationRaw(float& x, float& y, float& z){
   if(!_imu_initialized){
     return -1;
   }
@@ -163,7 +163,7 @@ int MyIMU::readAccelerationRaw(float& x, float& y, float& z){
   return 0;
 }
 
-int MyIMU::readGyroRaw(float& x, float& y, float& z){
+int MyIMU_GY87::readGyroRaw(float& x, float& y, float& z){
   if(!_imu_initialized){
     return -1;
   }
@@ -175,7 +175,7 @@ int MyIMU::readGyroRaw(float& x, float& y, float& z){
   return 0;
 }
 
-int MyIMU::readMagnetRaw(float& x, float& y, float& z){
+int MyIMU_GY87::readMagnetRaw(float& x, float& y, float& z){
   if(!_imu_initialized){
     return -1;
   }
@@ -187,7 +187,7 @@ int MyIMU::readMagnetRaw(float& x, float& y, float& z){
   return 0;
 }
 
-int MyIMU::getHeadingAngleDegRaw(float& ang_deg){
+int MyIMU_GY87::getHeadingAngleDegRaw(float& ang_deg){
   if(!_imu_initialized){
     return -1;
   }

@@ -87,7 +87,7 @@ void setup(){
   }
   timerAlarm(timer, 250000, true, 0);
   timerAttachInterrupt(timer, &onTimer);
-  timerStart(timer);
+  // timerStart(timer);
   delay(20);
 
   myfilter.init(0.0);

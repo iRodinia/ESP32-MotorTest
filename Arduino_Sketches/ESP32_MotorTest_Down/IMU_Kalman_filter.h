@@ -38,7 +38,7 @@ private:
     float last_gyro[3];
     float last_accel[3];
     bool initialized;
-    void predictState(float dt, float gyro[3], float accel[3]);
+    void predictState(float dt, float gyro[3], float accel[3], float comp_accel[3]);
     void updateWithAccel(float accel[3]);
     void updateWithMag(float mag[3]);
     void updateWithAltitude(float altitude);
@@ -109,19 +109,20 @@ void GY87_KalmanFilter::update(float accel_x, float accel_y, float accel_z,
     float gyro[3] = {gyro_x, gyro_y, gyro_z};
     float accel[3] = {accel_x, accel_y, accel_z};
     float mag[3] = {mag_x, mag_y, mag_z};
+    float accel_world[3];
 
-    predictState(dt, gyro, accel);
+    predictState(dt, gyro, accel, accel_world);
     updateWithAccel(accel);
     updateWithMag(mag);
     updateWithAltitude(altitude);
 
     for(int i = 0; i < 3; i++) {
         last_gyro[i] = gyro[i];
-        last_accel[i] = accel[i];
+        last_accel[i] = accel_world[i];
     }
 }
 
-void GY87_KalmanFilter::predictState(float dt, float gyro[3], float accel[3]) {
+void GY87_KalmanFilter::predictState(float dt, float gyro[3], float accel[3], float comp_accel[3]) {
     float gyro_corrected[3];
     for(int i = 0; i < 3; i++) {
         gyro_corrected[i] = gyro[i] - state[10 + i];
@@ -145,6 +146,12 @@ void GY87_KalmanFilter::predictState(float dt, float gyro[3], float accel[3]) {
 
     float accel_world[3];
     compensateGravity(accel, q, accel_world);
+    //Serial.printf("accel: %.2f, %.2f, %.2f; \n accel_world: %.2f, %.2f, %.2f \n", 
+    //    accel[0], accel[1], accel[2], accel_world[0], accel_world[1], accel_world[2]);
+
+    for(int i = 0; i < 3; i++) {
+        comp_accel[i] = accel_world[i];
+    }
 
     for(int i = 0; i < 3; i++) {
         state[i] += state[3 + i] * dt + 0.5f * accel_world[i] * dt * dt;
