@@ -4,8 +4,8 @@
 
 #include "SD_manager.h"
 #include "12864_display.h"
-#include "IMU_GY87_manager.h"
-#include "IMU_Kalman_filter.h"
+#include "IMU_GY85_manager.h"
+#include "Kalman_filter_GY85.h"
 #include "Serial_down_lib.h"
 
 /*
@@ -18,9 +18,9 @@ Display the real-time data on the screen.
 */
 
 MyDisplay myscreen;  // scl-33, sda-32
-MyIMU_GY87 mysensor;  // scl-22, sda-21
+MyIMU_GY85 mysensor;  // scl-22, sda-21
 SDCard mysd(18, 19, 23, 5);  // sck = 18; miso = 19; mosi = 23; cs = 5;
-GY87_KalmanFilter myfilter;
+GY85_KalmanFilter myfilter;
 // Serial2： rx-16, tx-17
 
 hw_timer_t *timer = NULL;
@@ -90,7 +90,7 @@ void setup(){
   // timerStart(timer);
   delay(20);
 
-  myfilter.init(0.0);
+  myfilter.init();
 
   myscreen.set_Line4("Pending...");
   Serial.println("Data Recording Board (Down) Initialization Done.");
@@ -99,7 +99,6 @@ void setup(){
 static unsigned long lastRcdLocalTime = 0;
 uint32_t lastImuFastUpdate = 0;
 uint32_t lastImuSlowUpdate = 0;
-float lastAlt = 0;
 float lastMx = 0;
 float lastMy = 0;
 float lastMz = 0;
@@ -122,27 +121,23 @@ void loop(){
     myscreen.set_Line2("Acc:" + String(-az, 3));
     myscreen.set_Line3("Vel:" + String(-vz, 3));
 
-
     Serial.printf("Mx:%.2f, My:%.2f, Mz:%.2f \n", lastMx, lastMy, lastMz);
-    Serial.printf("Alt:%.2f \n", lastAlt);
   }
 
   if(millis() - lastImuSlowUpdate > 25) {
     lastImuSlowUpdate = millis();
-    mysensor.readAltitudeRaw(lastAlt);
     mysensor.readMagnetRaw(lastMx, lastMy, lastMz);
   }
 
   uint32_t _dt = millis() - lastImuFastUpdate;
   if(_dt > 10) {
     lastImuFastUpdate = millis();
-    float _dt_s = _dt / 1000.0f;
     float ax = 0; float ay = 0; float az = 0;
     float gx = 0; float gy = 0; float gz = 0;
     mysensor.readAccelerationRaw(ax, ay, az);
     mysensor.readGyroRaw(gx, gy, gz);
     myfilter.update(ax, ay, az, gx, gy, gz,
-      lastMx, lastMy, lastMz, lastAlt, _dt_s);
+      lastMx, lastMy, lastMz, _dt/1000.0f);
   }
 
   if (Serial2.available()) {
