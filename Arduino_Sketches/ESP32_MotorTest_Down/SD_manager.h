@@ -14,6 +14,7 @@ public:
   SDCard(uint8_t sck=18, uint8_t miso=19, uint8_t mosi=23, uint8_t cs=5);
   bool init();
   bool checkCardStatus();
+  bool checkFileStatus();
   int set_folder_name(String folder_name = "default_folder");
   int create_file(String head_line, String file_name = "default_file");
   int record(String message);
@@ -33,24 +34,36 @@ SDCard::SDCard(uint8_t sck, uint8_t miso, uint8_t mosi, uint8_t cs){
   _miso = miso;
   _mosi = mosi;
   _cs = cs;
+
+  _card_mounted = false;
+  _file_created = false;
 }
 
 bool SDCard::init(){
-  bool init_flag;
   SPI.begin(_sck, _miso, _mosi, _cs);
   SPI.setFrequency(4000000);
-  init_flag = SD.begin(_cs);
-  if(!init_flag){
+  if(!SD.begin(_cs)){
     Serial.println("Card mount failed");
     _card_mounted = false;
     return false;
   }
   _card_mounted = true;
+  uint64_t card_free_space = (SD.totalBytes() - SD.usedBytes()) / (1024 * 1024);
+  if(card_free_space <= 2){
+    Serial.printf("SD Card Free Space not enough: %lluMB\n", card_free_space);
+    Serial.println("Clearing existing log files.");
+    clear_logs("/");
+  }
+  _file_created = false;
   return true;
 }
 
 bool SDCard::checkCardStatus(){
   return _card_mounted;
+}
+
+bool SDCard::checkFileStatus(){
+  return _file_created;
 }
 
 int SDCard::set_folder_name(String folder_name){
@@ -69,14 +82,6 @@ int SDCard::create_file(String head_line, String file_name){
     return 0;
   }
 
-  uint64_t card_free_space = (SD.totalBytes() - SD.usedBytes()) / (1024 * 1024);
-  if(card_free_space <= 2){
-    Serial.printf("SD Card Free Space: %lluMB\n", card_free_space);
-    Serial.println("Exit due to insufficient card space.");
-    _file_created = false;
-    return -1;
-  }
-  
   _file_path = "/" + _folder_name + "/" + file_name + ".txt";
   while(SD.exists(_file_path.c_str())){
     file_name += "+";
@@ -103,7 +108,7 @@ int SDCard::create_file(String head_line, String file_name){
 
 int SDCard::record(String message){
   if(!_card_mounted || !_file_created){
-    Serial.println("Log file not created. Log failed.");
+    Serial.println("SD Log file not created. Log failed.");
     return -1;
   }
 

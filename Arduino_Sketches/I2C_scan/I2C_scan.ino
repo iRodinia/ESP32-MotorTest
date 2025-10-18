@@ -4,6 +4,9 @@
 void setup()
 {
   Wire.begin();
+  Wire.setClock(100000);
+  Wire.setTimeOut(3000);
+  
   Serial.begin(115200);
   while (!Serial);             // 等待Serial连接
   delay(100);

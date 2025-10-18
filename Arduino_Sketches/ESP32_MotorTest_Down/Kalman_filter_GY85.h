@@ -27,10 +27,13 @@ public:
 
 private:
     // State vector: [vx, vy, vz, ax, ay, az, q0, q1, q2, q3, wx, wy, wz]
+    // World frame: x=East, y=North, z=Up (ENU)
+    // Body frame: x=Forward, y=Left, z=Up (FLU)
+    // Sensor mounting: x=Forward, y=Right, z=Down (FRD)
     // vx, vy, vz: velocity in world frame (m/s)
     // ax, ay, az: acceleration in world frame (m/s^2)
-    // q0-q3: quaternion (attitude)
-    // wx, wy, wz: angular velocity in body frame (rad/s)
+    // q0-q3: quaternion (attitude, world to body frame)
+    // wx, wy, wz: angular velocity in body frame FLU (rad/s)
     float state[13];
     float P[13][13];  // covariance matrix
     
@@ -72,10 +75,27 @@ GY85_KalmanFilter::GY85_KalmanFilter() {
     
     initialized = false;
     
-    // Reference magnetic field (North in world frame, normalized)
-    mag_ref[0] = 1.0f;
-    mag_ref[1] = 0.0f;
-    mag_ref[2] = 0.0f;
+    // Reference magnetic field for this location
+    // Inclination angle: -3°16' (negative means below horizontal)
+    // Declination angle: West (negative)
+    // Convert to radians: -3.2667° = -0.05701 rad
+    float inclination = -3.2667f * PI / 180.0f;  // -3°16' converted to degrees
+    
+    // Magnetic field components in world frame (NED: North-East-Down)
+    // North: horizontal component (cos of inclination)
+    // East: 0 (assuming no magnetic declination correction needed here)
+    // Down: vertical component (sin of inclination, negative means up)
+    mag_ref[0] = cos(inclination);   // North component (~0.9983)
+    mag_ref[1] = 0.0f;               // East component
+    mag_ref[2] = sin(inclination);   // Down component (~-0.0568, negative means upward)
+    
+    // Normalize the reference magnetic field
+    float mag_norm = sqrt(mag_ref[0]*mag_ref[0] + mag_ref[1]*mag_ref[1] + mag_ref[2]*mag_ref[2]);
+    if(mag_norm > 0.0001f) {
+        for(int i = 0; i < 3; i++) {
+            mag_ref[i] /= mag_norm;
+        }
+    }
 }
 
 bool GY85_KalmanFilter::getInitStatus() {
@@ -120,9 +140,13 @@ void GY85_KalmanFilter::update(float accel_x, float accel_y, float accel_z,
         init();
     }
     
-    float gyro[3] = {gyro_x, gyro_y, gyro_z};
-    float accel_body[3] = {accel_x, accel_y, accel_z};
-    float mag[3] = {mag_x, mag_y, mag_z};
+    // Convert sensor readings from FRD (Forward-Right-Down) to FLU (Forward-Left-Up)
+    // FRD: [x_fwd, y_right, z_down]
+    // FLU: [x_fwd, y_left, z_up]
+    // Transformation: FLU_x = FRD_x, FLU_y = -FRD_y, FLU_z = -FRD_z
+    float gyro[3] = {gyro_x, -gyro_y, -gyro_z};           // rad/s in FLU
+    float accel_body[3] = {accel_x, -accel_y, -accel_z}; // m/s^2 in FLU
+    float mag[3] = {mag_x, -mag_y, -mag_z};              // uT in FLU
     
     // Prediction step
     predictState(dt, gyro, accel_body);
@@ -195,7 +219,7 @@ void GY85_KalmanFilter::updateWithAccel(float accel_body[3]) {
     
     // Expected gravity in body frame
     float q[4] = {state[6], state[7], state[8], state[9]};
-    float gravity_world[3] = {0.0f, 0.0f, 9.81f};
+    float gravity_world[3] = {0.0f, 0.0f, -9.81f};
     float gravity_body[3];
     
     rotateVectorByQuaternionInv(q, gravity_world, gravity_body);
@@ -206,7 +230,7 @@ void GY85_KalmanFilter::updateWithAccel(float accel_body[3]) {
     
     if(gravity_norm > 0.1f) {
         for(int i = 0; i < 3; i++) {
-            gravity_body[i] /= 9.81;
+            gravity_body[i] /= gravity_norm;
         }
     }
     

@@ -72,9 +72,10 @@ public:
   void OLED_ColorTurn(uint8_t i);  // set the color (normal or reverse)
   void OLED_DisplayTurn(uint8_t i);  // set the direction (normal or 180 deg reverse)
   void set_Line1(String line1);  // head line, lenght <= 18
-  void set_Line2(String line2);  // content line, length <= 16
-  void set_Line3(String line3);  // content line, length <= 16
-  void set_Line4(String line4);  // note line, length <= 21
+  void set_Line2(String line2);  // content line, length <= 21
+  void set_Line3(String line3);  // content line, length <= 21
+  void set_Line4(String line4);  // content line, length <= 21
+  void set_Line5(String line5);  // content line, length <= 21
   void set_Checkbox(bool flag);
 
 protected:
@@ -96,7 +97,7 @@ private:
 
   myI2C _i2c_port;
   uint8_t _scl, _sda;
-  String _line1, _line2, _line3, _line4;
+  String _line1, _line2, _line3, _line4, _line5;
   bool _checkbox;
 };
 
@@ -106,7 +107,6 @@ MyDisplay::MyDisplay(uint8_t scl, uint8_t sda){
 }
 
 bool MyDisplay::init(){
-  Serial.println("Start to initialize the 12864 display.");
   pinMode(_scl, OUTPUT);
   pinMode(_sda, OUTPUT);
   _i2c_port.init(_scl, _sda);
@@ -142,8 +142,11 @@ bool MyDisplay::init(){
   OLED_WR_Byte(0xAF,OLED_CMD);
 
   OLED_Clear();
-  Serial.println("12864 display initialized.");
-  set_Line1("IP:None");
+  set_Line1("T:0");
+  set_Line2(" ");
+  set_Line3(" ");
+  set_Line4(" ");
+  set_Line5(" ");
   set_Checkbox(false);
   return true;
 }
@@ -174,15 +177,15 @@ void MyDisplay::set_Line1(String line1){
 }
 
 void MyDisplay::set_Line2(String line2){
-  if(line2.length() > 16){
-    line2 = line2.substring(0, 16);
+  if(line2.length() > 21){
+    line2 = line2.substring(0, 21);
   }
   _line2 = line2;
 }
 
 void MyDisplay::set_Line3(String line3){
-  if(line3.length() > 16){
-    line3 = line3.substring(0, 16);
+  if(line3.length() > 21){
+    line3 = line3.substring(0, 21);
   }
   _line3 = line3;
 }
@@ -192,6 +195,13 @@ void MyDisplay::set_Line4(String line4){
     line4 = line4.substring(0, 21);
   }
   _line4 = line4;
+}
+
+void MyDisplay::set_Line5(String line5){
+  if(line5.length() > 21){
+    line5 = line5.substring(0, 21);
+  }
+  _line5 = line5;
 }
 
 void MyDisplay::set_Checkbox(bool flag){
@@ -219,10 +229,11 @@ void MyDisplay::OLED_UpdateRam(void){
   }
   OLED_ShowString(0, 1, _line1.c_str(), 12);
   OLED_DrawLine(0,15,128,15);
-  OLED_ShowString(0, 16, _line2.c_str(), 16);
-  OLED_ShowString(0, 32, _line3.c_str(), 16);
-  OLED_ShowString(0, 51, _line4.c_str(), 12);
-  OLED_DrawLine(0,49,128,49);
+  OLED_ShowString(0, 16, _line2.c_str(), 12);
+  OLED_ShowString(0, 28, _line3.c_str(), 12);
+  OLED_ShowString(0, 40, _line4.c_str(), 12);
+  OLED_ShowString(0, 52, _line5.c_str(), 12);
+
   OLED_DrawCircle(117,6,5);
   if(_checkbox){
     uint8_t i,j;
