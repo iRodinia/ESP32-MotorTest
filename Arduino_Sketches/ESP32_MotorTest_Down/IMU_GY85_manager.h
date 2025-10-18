@@ -21,6 +21,7 @@ public:
   int readAccelerationRaw(float& x, float& y, float& z);  // in m/s^2
   int readGyroRaw(float& x, float& y, float& z);  // in rad/s
   int readMagnetRaw(float& x, float& y, float& z);  // in µT
+  int readTemperatureRaw(float& deg);  // in degree centigrade
   int getHeadingAngleDegRaw(float& ang_deg);  // in deg
   void setAccelBias(float dax, float day, float daz);
 
@@ -158,6 +159,14 @@ int MyIMU_GY85::readMagnetRaw(float& x, float& y, float& z){
   x = event.magnetic.x;
   y = event.magnetic.y;
   z = event.magnetic.z;
+  return 0;
+}
+
+int MyIMU_GY85::readTemperatureRaw(float& deg){
+  if(!_imu_initialized){
+    return -1;
+  }
+  deg = _my_gyro.getTemperature();
   return 0;
 }
 
