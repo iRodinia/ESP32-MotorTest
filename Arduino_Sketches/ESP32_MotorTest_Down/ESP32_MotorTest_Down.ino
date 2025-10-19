@@ -9,6 +9,10 @@
 #include "IMU_GY85_manager.h"
 #include "helper_functions.h"
 
+
+#define LED_PIN 2  // LED on means initializaiton done, LED blink means data sending
+#define LED_TOGGLE() digitalWrite(LED_PIN, digitalRead(LED_PIN) ^ 1)
+
 /*
 MCU (down) Functionality:
 Measure the acceleration, gyro and gesture in the world frame (ENU), and measure angular velocity in the body frame (FLU);
@@ -62,6 +66,9 @@ void setup(){
   Serial.begin(115200);  // usb
   while (!Serial)
     delay(10);
+
+  pinMode(LED_PIN, OUTPUT);
+  digitalWrite(LED_PIN, LOW);
 
   Serial.printf("\n");
   Serial.println("##### Start the Data Recording Board (Down) #####");
@@ -126,6 +133,7 @@ void setup(){
   }
   Serial.println("All modules initialized.");
   Serial.println("Data Recording Board (Down) Initialization Done.");
+  LED_TOGGLE();
   delay(50);
 }
 
@@ -156,7 +164,10 @@ void loop(){
         mysd.record(_glb_t + " " + _lca_t + " " + String(resultStr));
       }
       Serial2.println(String(resultStr));
+      LED_TOGGLE();
     }
+
+    // Serial.println(resultStr);
 
     if(start_wifi_broadcast && WiFi.status() == WL_CONNECTED){
       udp.beginPacket(udpAddress.c_str(), udpPort);
@@ -178,7 +189,7 @@ void loop(){
     lastSensorFastUpdate = millis();
     float _ax, _ay, _az, _gx, _gy, _gz;
     mysensor.readAccelerationRaw(_ax, _ay, _az);
-    lastAx = _ax; lastAy = -_ay; lastAz = -_az;
+    lastAx = _ax; lastAy = -_ay; lastAz = -_az - 9.81f;
     mysensor.readGyroRaw(_gx, _gy, _gz);
     lastGx = _gx; lastGy = -_gy; lastGz = -_gz;
   }
@@ -194,6 +205,7 @@ void Process_Command(String command) {
   else if (command == "Stop_rcd") {
     start_log = false;
     Serial.println("Data recording stopped.");
+    digitalWrite(LED_PIN, HIGH);
   }
   else if (command == "Create_f"){
     String data_headline = "global_t local_t acc_x acc_y acc_z omega_x omega_y omega_z mag_x mag_y mag_z temp";

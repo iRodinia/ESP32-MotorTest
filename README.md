@@ -49,17 +49,22 @@ Overview of the ESP32-Wroom-DA module:
 
 ![ESP32WROOMDA_pins](.\\README_resources\\ESP32WROOMDA_pins.png "Picture of the ESP32 Pins assignments")
 
-- Devices Connection
+- Devices Connection (Down)
 
-  1. **SD card reader**: CS-5, SCK-18, MOSI-23, MISO-19
-  2. **OLED Screen**: SCL-22, SDA-21
-  3. **BLHeli32 ESC**: Tx-16, Dshot-13
+  1. **SD Card Reader**: CS-5, SCK-18, MOSI-19, MISO-23
+  2. **OLED Screen**: SCL-33, SDA-32
+  3. **GY-85 IMU**: SCL-22, SDA-21
+  4. **Serial 2**: Rx-16, Tx-17
+
+- Devices Connection (Up)
+
+  1. **SD Card Reader**: CS-5, SCK-18, MOSI-19, MISO-23
 
 - Arduino Libraries Needed
   
   1. **SD** by Arduino;
   2. **NTPClient** by Fabrice Weinberg; **Time** by Michael Margolis;
-  3. **Adafruit MPU6050** by Adafruit; **Adafruit HMC5883 Unified** by Adafruit; **Adafruit BMP085 Library** by Adafruit;
+  3. **Adafruit ADXL345** by Adafruit; **Adafruit HMC5883 Unified** by Adafruit; **Grove 3-Axis Digital Gyro** by Seeed Studio;
   4. **EspSoftwareSerial** by Dirk Kaar and Peter Lerup
 
 - Arduino IDE Settings
