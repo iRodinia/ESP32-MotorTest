@@ -7,21 +7,19 @@
 #include <SPI.h>
 #include "12864_font.h"
 
-// Software IIC Port
-#define SCL_Pin 33
-#define SDA_Pin 32
-
-#define OLED_SCLK_Clr() digitalWrite(SCL_Pin,LOW)
-#define OLED_SCLK_Set() digitalWrite(SCL_Pin,HIGH)
-#define OLED_SDIN_Clr() digitalWrite(SDA_Pin,LOW)
-#define OLED_SDIN_Set() digitalWrite(SDA_Pin,HIGH)
 #define OLED_CMD  0
 #define OLED_DATA 1
+#define I2C_DELAY_US 5
 
 uint8_t OLED_GRAM[128][8]; // display buffer
 
 class myI2C {
 public:
+  void init(uint8_t scl, uint8_t sda){
+    _scl_pin = scl;
+    _sda_pin = sda;
+  }
+
   void I2C_Start(void){
     OLED_SDIN_Set();
     OLED_SCLK_Set();
@@ -36,8 +34,10 @@ public:
   }
 
   void I2C_WaitAck(void){
+    OLED_SDIN_Set();
     OLED_SCLK_Set();
     OLED_SCLK_Clr();
+    OLED_SDIN_Clr();
   }
 
   void Send_Byte(uint8_t dat){
@@ -55,21 +55,30 @@ public:
       dat<<=1;
     }
   }
+
+private:
+  uint8_t _scl_pin, _sda_pin;
+  void OLED_SCLK_Clr(){digitalWrite(_scl_pin, LOW);}
+  void OLED_SCLK_Set(){digitalWrite(_scl_pin, HIGH);}
+  void OLED_SDIN_Clr(){digitalWrite(_sda_pin, LOW);}
+  void OLED_SDIN_Set(){digitalWrite(_sda_pin, HIGH);}
 };
 
 // Coordinates of the display is originated from up-left corner (0,0)
 class MyDisplay {
 public:
-  MyDisplay();  // init the display
+  MyDisplay(uint8_t scl=33, uint8_t sda=32);
+  bool init();  // init the display
   void OLED_Clear(void);  // clear display
   void OLED_UpdateRam(void);  // upload the strings to RAM
   void OLED_Refresh(void);  // upload the buffer to OLED
   void OLED_ColorTurn(uint8_t i);  // set the color (normal or reverse)
   void OLED_DisplayTurn(uint8_t i);  // set the direction (normal or 180 deg reverse)
   void set_Line1(String line1);  // head line, lenght <= 18
-  void set_Line2(String line2);  // content line, length <= 16
-  void set_Line3(String line3);  // content line, length <= 16
-  void set_Line4(String line4);  // note line, length <= 21
+  void set_Line2(String line2);  // content line, length <= 21
+  void set_Line3(String line3);  // content line, length <= 21
+  void set_Line4(String line4);  // content line, length <= 21
+  void set_Line5(String line5);  // content line, length <= 21
   void set_Checkbox(bool flag);
 
 protected:
@@ -90,14 +99,20 @@ private:
   void OLED_WR_BP(uint8_t x,uint8_t y);  // set start position of writing oled buffer
 
   myI2C _i2c_port;
-  Sting _line1, _line2, _line3, _line4;
+  uint8_t _scl, _sda;
+  String _line1, _line2, _line3, _line4, _line5;
   bool _checkbox;
 };
 
-MyDisplay::MyDisplay(){
-  Serial.println("Start to initialize the 12864 display.");
-  pinMode(scl, OUTPUT);
-  pinMode(sda, OUTPUT);
+MyDisplay::MyDisplay(uint8_t scl, uint8_t sda){
+  _scl = scl;
+  _sda = sda;
+}
+
+bool MyDisplay::init(){
+  pinMode(_scl, OUTPUT);
+  pinMode(_sda, OUTPUT);
+  _i2c_port.init(_scl, _sda);
   delay(100);
 
   OLED_WR_Byte(0xAE,OLED_CMD);  //--turn off oled panel
@@ -130,9 +145,13 @@ MyDisplay::MyDisplay(){
   OLED_WR_Byte(0xAF,OLED_CMD);
 
   OLED_Clear();
-  Serial.println("12864 display initialized.");
-  set_Line1("IP:None");
+  set_Line1("T:0");
+  set_Line2(" ");
+  set_Line3(" ");
+  set_Line4(" ");
+  set_Line5(" ");
   set_Checkbox(false);
+  return true;
 }
 
 void MyDisplay::OLED_ColorTurn(uint8_t i){
@@ -161,15 +180,15 @@ void MyDisplay::set_Line1(String line1){
 }
 
 void MyDisplay::set_Line2(String line2){
-  if(line2.length() > 16){
-    line2 = line2.substring(0, 16);
+  if(line2.length() > 21){
+    line2 = line2.substring(0, 21);
   }
   _line2 = line2;
 }
 
 void MyDisplay::set_Line3(String line3){
-  if(line3.length() > 16){
-    line3 = line3.substring(0, 16);
+  if(line3.length() > 21){
+    line3 = line3.substring(0, 21);
   }
   _line3 = line3;
 }
@@ -179,6 +198,13 @@ void MyDisplay::set_Line4(String line4){
     line4 = line4.substring(0, 21);
   }
   _line4 = line4;
+}
+
+void MyDisplay::set_Line5(String line5){
+  if(line5.length() > 21){
+    line5 = line5.substring(0, 21);
+  }
+  _line5 = line5;
 }
 
 void MyDisplay::set_Checkbox(bool flag){
@@ -206,10 +232,11 @@ void MyDisplay::OLED_UpdateRam(void){
   }
   OLED_ShowString(0, 1, _line1.c_str(), 12);
   OLED_DrawLine(0,15,128,15);
-  OLED_ShowString(0, 16, _line2.c_str(), 16);
-  OLED_ShowString(0, 32, _line3.c_str(), 16);
-  OLED_ShowString(0, 51, _line4.c_str(), 12);
-  OLED_DrawLine(0,49,128,49);
+  OLED_ShowString(0, 16, _line2.c_str(), 12);
+  OLED_ShowString(0, 28, _line3.c_str(), 12);
+  OLED_ShowString(0, 40, _line4.c_str(), 12);
+  OLED_ShowString(0, 52, _line5.c_str(), 12);
+
   OLED_DrawCircle(117,6,5);
   if(_checkbox){
     uint8_t i,j;

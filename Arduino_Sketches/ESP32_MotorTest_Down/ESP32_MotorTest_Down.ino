@@ -39,6 +39,7 @@ bool cmd_received = false;
 bool start_log = false;  // data sending status
 bool start_wifi_broadcast = false;  // wifi data sending status
 uint32_t DEFAULT_TIME = 1357041600;  // Jan 1 2013
+uint32_t screen_fresh_cnt = 0;
 uint32_t startRecordLT = 0;  // start recording local time
 uint32_t lastDataLoopT = 0;
 uint32_t lastSensorFastUpdate = 0;
@@ -50,16 +51,20 @@ float lastTmp = 0;  // in degree centigrade
 String up_cmd = "";  // store the received cmd from MCU (up)
 
 void onTimer() {
-  myscreen.set_Line1("T:" + getCurrentTime());
-  myscreen.set_Line2("acc:"+String(lastAx,1)+","+String(lastAy,1)+","+String(lastAz,1));
-  myscreen.set_Line3("gyo:"+String(lastGx,1)+","+String(lastGy,1)+","+String(lastGz,1));
-  myscreen.set_Line4("mag:"+String(lastMx,1)+","+String(lastMy,1)+","+String(lastMz,1));
-  myscreen.set_Line5("tmp:"+String(lastTmp,2));
-  if(start_wifi_broadcast){
-    myscreen.set_Checkbox(true);
+  if (screen_fresh_cnt < 800) {
+    myscreen.set_Line1("T:" + getCurrentTime());
+    myscreen.set_Line2("acc:"+String(lastAx,1)+","+String(lastAy,1)+","+String(lastAz,1));
+    myscreen.set_Line3("gyo:"+String(lastGx,1)+","+String(lastGy,1)+","+String(lastGz,1));
+    myscreen.set_Line4("mag:"+String(lastMx,1)+","+String(lastMy,1)+","+String(lastMz,1));
+    myscreen.set_Line5("tmp:"+String(lastTmp,2));
+    myscreen.OLED_UpdateRam();
+    myscreen.OLED_Refresh();
+    screen_fresh_cnt++;
   }
-  myscreen.OLED_UpdateRam();
-  myscreen.OLED_Refresh();
+  else {
+    myscreen.OLED_Reset_Display();
+    screen_fresh_cnt = 0;
+  }
 }
 
 void setup(){
@@ -249,6 +254,7 @@ void Process_Command(String command) {
     String valueStr = command.substring(3);
     if(isValidIP(valueStr)){
       udpAddress = valueStr;
+      myscreen.set_Checkbox(false);
       Serial.println("UDP target IP updated: " + valueStr);
       Serial2.println("IP_ack");
     }
@@ -258,16 +264,19 @@ void Process_Command(String command) {
     int port_interger = valueStr.toInt();
     if(port_interger >= 1024){
       udpPort = port_interger;
+      myscreen.set_Checkbox(false);
       Serial.println("UDP target port updated: " + valueStr);
       Serial2.println("P_ack");
     }
   }
   else if (command == "Start_brd") {
     start_wifi_broadcast = true;
+    myscreen.set_Checkbox(true);
     Serial.println("Data broadcasting started.");
   }
   else if (command == "Stop_brd") {
     start_wifi_broadcast = false;
+    myscreen.set_Checkbox(false);
     Serial.println("Data broadcasting stopped.");
   }
   else if (command.length() > 0) {

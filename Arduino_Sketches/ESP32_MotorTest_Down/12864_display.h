@@ -69,6 +69,7 @@ class MyDisplay {
 public:
   MyDisplay(uint8_t scl=33, uint8_t sda=32);
   bool init();  // init the display
+  void OLED_Reset_Display(void);  // reset to fix pixel shift
   void OLED_Clear(void);  // clear display
   void OLED_UpdateRam(void);  // upload the strings to RAM
   void OLED_Refresh(void);  // upload the buffer to OLED
@@ -152,6 +153,22 @@ bool MyDisplay::init(){
   set_Line5(" ");
   set_Checkbox(false);
   return true;
+}
+
+void MyDisplay::OLED_Reset_Display(void){
+  OLED_WR_Byte(0xAE, OLED_CMD);
+  OLED_WR_Byte(0xD3, OLED_CMD);
+  OLED_WR_Byte(0x00, OLED_CMD);
+  OLED_WR_Byte(0x40, OLED_CMD);
+  OLED_WR_Byte(0x20, OLED_CMD);
+  OLED_WR_Byte(0x00, OLED_CMD);
+  OLED_WR_Byte(0x21, OLED_CMD);
+  OLED_WR_Byte(0x00, OLED_CMD);
+  OLED_WR_Byte(0x7F, OLED_CMD);
+  OLED_WR_Byte(0x22, OLED_CMD);
+  OLED_WR_Byte(0x00, OLED_CMD);
+  OLED_WR_Byte(0x07, OLED_CMD);
+  OLED_WR_Byte(0xAF, OLED_CMD);
 }
 
 void MyDisplay::OLED_ColorTurn(uint8_t i){
