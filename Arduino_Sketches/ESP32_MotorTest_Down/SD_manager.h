@@ -47,6 +47,7 @@ bool SDCard::init(){
     _card_mounted = false;
     return false;
   }
+  Serial.println("Card mount succeeded.");
   _card_mounted = true;
   uint64_t card_free_space = (SD.totalBytes() - SD.usedBytes()) / (1024 * 1024);
   if(card_free_space <= 2){
