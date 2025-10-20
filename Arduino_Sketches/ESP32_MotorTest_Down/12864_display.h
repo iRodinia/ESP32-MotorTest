@@ -9,6 +9,7 @@
 
 #define OLED_CMD  0
 #define OLED_DATA 1
+#define I2C_DELAY_US 5
 
 uint8_t OLED_GRAM[128][8]; // display buffer
 
@@ -33,8 +34,10 @@ public:
   }
 
   void I2C_WaitAck(void){
+    OLED_SDIN_Set();
     OLED_SCLK_Set();
     OLED_SCLK_Clr();
+    OLED_SDIN_Clr();
   }
 
   void Send_Byte(uint8_t dat){
