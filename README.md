@@ -58,7 +58,8 @@ Overview of the ESP32-Wroom-DA module:
 
 - Devices Connection (Up)
 
-  1. **SD Card Reader**: CS-5, SCK-18, MOSI-19, MISO-23
+  1. **SD Card Reader**: CS-5, SCK-18, MOSI-23, MISO-19
+  2. **AD7705 ADC**: CS-15, SCK-14, MISO(to DOUT)-12, MOSI(to DIN)-13
 
 - Arduino Libraries Needed
   

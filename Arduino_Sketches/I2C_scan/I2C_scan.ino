@@ -1,11 +1,11 @@
 #include <Arduino.h>
 #include <Wire.h>
 
+// ESP32WroomDA: SCL-22, SDA-21
+
 void setup()
 {
   Wire.begin();
-  Wire.setClock(100000);
-  Wire.setTimeOut(3000);
   
   Serial.begin(115200);
   while (!Serial);             // 等待Serial连接
