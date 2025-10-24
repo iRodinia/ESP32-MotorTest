@@ -1,24 +1,21 @@
-/*
- * ESP32-WROOM-DA 多传感器数据采集与WiFi传输系统
- * 功能：
- * 1. AD7705采集模拟电压(0-3.3V)
- * 2. ADS1115配合Holybro PM02采集6S电池电压和电流
- * 3. 串口读取BLHeli32电调数据(转速、电流、电压)
- * 4. 读取外部PWM信号宽度
- * 5. 通过UDP每0.1秒发送一次数据
- */
+//ESP32-WROOM-DA multi-sensor and data transmission system
 
+#include <Arduino.h>
 #include <WiFi.h>
 #include <WiFiUdp.h>
 #include <Wire.h>
-#include <Adafruit_ADS1X15.h>
-#include <SPI.h>
 
-// ========== WiFi配置 ==========
-const char* ssid = "Your_WiFi_SSID";           // 修改为你的WiFi名称
-const char* password = "Your_WiFi_Password";   // 修改为你的WiFi密码
-const char* udpAddress = "192.168.1.100";      // 修改为目标IP地址
-const int udpPort = 12345;                      // 修改为目标端口
+#include "12864_display.h"
+#include "SD_manager.h"
+#include "Time_manager.h"
+#include "Force_sensor.h"
+#include "Power_monitor.h"
+#include "Esc_Telemetry.h"
+
+const char* ssid = "BioInBot_Lab";
+const char* password = "11223344";
+char* udpAddress = "192.168.1.100";  // target udp ip address
+int udpPort = 12345;  // target udp port
 
 // ========== 引脚定义 ==========
 // AD7705 SPI引脚
