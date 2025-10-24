@@ -11,296 +11,82 @@
 #include "Force_sensor.h"
 #include "Power_monitor.h"
 #include "Esc_Telemetry.h"
+#include "Pwm_reader.h"
 
 const char* ssid = "BioInBot_Lab";
 const char* password = "11223344";
-char* udpAddress = "192.168.1.100";  // target udp ip address
-int udpPort = 12345;  // target udp port
-
-// ========== 引脚定义 ==========
-// AD7705 SPI引脚
-#define AD7705_CS    5      // 片选
-#define AD7705_DRDY  4      // 数据就绪引脚
-#define AD7705_RESET 2      // 复位引脚
-// 使用默认SPI引脚: MOSI=23, MISO=19, SCK=18
-
-// ADS1115 I2C引脚 (使用默认I2C)
-// SDA = 21, SCL = 22
-
-// BLHeli32串口引脚
-#define ESC_RX_PIN   16     // 连接到电调TX (实际不用接收)
-#define ESC_TX_PIN   17     // 如果需要向电调发送命令
-
-// PWM信号输入引脚
-#define PWM_INPUT_PIN 15    // 读取PWM信号
-
-// ========== AD7705寄存器定义 ==========
-#define AD7705_COMM_REG        0x00
-#define AD7705_SETUP_REG       0x10
-#define AD7705_CLOCK_REG       0x20
-#define AD7705_DATA_REG        0x30
-#define AD7705_WRITE           0x00
-#define AD7705_READ            0x08
-#define AD7705_CH_AIN1         0x00
-
-// ========== PM02电流计参数 ==========
-const float VOLTAGE_DIVIDER = 18.0;      // 电压分压比 (V = ADC * 18)
-const float CURRENT_SCALE = 36.6;        // 电流比例 (I = ADC * 36.6)
-const float ADC_TO_VOLTAGE = 0.0001875;  // ADS1115: 6.144V/32768 = 0.0001875V/bit
-
-// ========== BLHeli32协议定义 ==========
-// BLHeli32数据帧格式 (Telemetry数据)
-#define BLHELI_FRAME_LENGTH 10
-#define BLHELI_HEADER 0x9B
-
-// ========== 对象实例 ==========
 WiFiUDP udp;
-Adafruit_ADS1X15 ads;
-HardwareSerial ESCSerial(2);  // 使用Serial2
+String udpAddress = "192.168.1.100";  // target udp ip address
+int udpPort = 12345;  // target udp port
+hw_timer_t *timer1 = NULL;
+hw_timer_t *timer2 = NULL;
 
-// ========== PWM测量变量 ==========
-volatile unsigned long pwm_rise_time = 0;
-volatile unsigned long pwm_pulse_width = 0;
-volatile bool pwm_new_data = false;
+bool start_log = false;  // data sending status
+bool start_wifi_broadcast = false;  // wifi data sending status
+uint32_t DEFAULT_TIME = 1357041600;  // Jan 1 2013
+uint32_t screen_fresh_cnt = 0;
 
-// ========== 测量数据结构 ==========
-struct SensorData {
-  float ad7705_voltage;      // AD7705电压 (V)
-  float battery_voltage;     // 电池电压 (V)
-  float battery_current;     // 电池电流 (A)
-  uint16_t esc_rpm;          // 电机转速 (RPM)
-  float esc_voltage;         // 电调电压 (V)
-  float esc_current;         // 电调电流 (A)
-  uint16_t esc_temp;         // 电调温度 (℃)
-  uint16_t pwm_width;        // PWM脉冲宽度 (us)
-  unsigned long timestamp;   // 时间戳 (ms)
-} sensorData;
+MyDisplay myScreen;
+SDCard mySd;
+MyTimer myClock;
+MyForceSensor myGauge;
+MyPowerMonitor myMonitor;
+MyEscTelemetry myEsc;
+MyPwmReader myReceiver;
 
-// BLHeli32数据缓冲
-struct ESCTelemetry {
-  uint16_t rpm;
-  float voltage;
-  float current;
-  uint16_t temp;
-  unsigned long lastUpdate;
-} escData;
-
-unsigned long lastSendTime = 0;
-const unsigned long sendInterval = 100;  // 100ms = 0.1s
-
-// ========== PWM中断服务函数 ==========
-void IRAM_ATTR pwm_isr() {
-  unsigned long currentTime = micros();
-  
-  if(digitalRead(PWM_INPUT_PIN) == HIGH) {
-    // 上升沿 - 记录开始时间
-    pwm_rise_time = currentTime;
-  } else {
-    // 下降沿 - 计算脉冲宽度
-    if(pwm_rise_time > 0) {
-      pwm_pulse_width = currentTime - pwm_rise_time;
-      pwm_new_data = true;
-    }
-  }
-}
-
-// ========== AD7705函数 ==========
-void ad7705_write(uint8_t data) {
-  digitalWrite(AD7705_CS, LOW);
-  SPI.transfer(data);
-  digitalWrite(AD7705_CS, HIGH);
-}
-
-uint8_t ad7705_read() {
-  digitalWrite(AD7705_CS, LOW);
-  uint8_t data = SPI.transfer(0xFF);
-  digitalWrite(AD7705_CS, HIGH);
-  return data;
-}
-
-uint16_t ad7705_read_data() {
-  digitalWrite(AD7705_CS, LOW);
-  ad7705_write(AD7705_COMM_REG | AD7705_READ | AD7705_DATA_REG);
-  uint8_t highByte = SPI.transfer(0xFF);
-  uint8_t lowByte = SPI.transfer(0xFF);
-  digitalWrite(AD7705_CS, HIGH);
-  return (highByte << 8) | lowByte;
-}
-
-void ad7705_init() {
-  pinMode(AD7705_CS, OUTPUT);
-  pinMode(AD7705_DRDY, INPUT);
-  pinMode(AD7705_RESET, OUTPUT);
-  
-  digitalWrite(AD7705_CS, HIGH);
-  
-  // 复位AD7705
-  digitalWrite(AD7705_RESET, LOW);
-  delay(10);
-  digitalWrite(AD7705_RESET, HIGH);
-  delay(10);
-  
-  // 写入至少32个1来复位通信
-  digitalWrite(AD7705_CS, LOW);
-  for(int i = 0; i < 4; i++) {
-    SPI.transfer(0xFF);
-  }
-  digitalWrite(AD7705_CS, HIGH);
-  delay(10);
-  
-  // 配置时钟寄存器
-  ad7705_write(AD7705_COMM_REG | AD7705_WRITE | AD7705_CLOCK_REG);
-  ad7705_write(0x0C);
-  
-  // 配置设置寄存器
-  ad7705_write(AD7705_COMM_REG | AD7705_WRITE | AD7705_SETUP_REG | AD7705_CH_AIN1);
-  ad7705_write(0x40);
-  
-  delay(500);
-  
-  Serial.println("AD7705初始化完成");
-}
-
-float ad7705_read_voltage() {
-  int timeout = 1000;
-  while(digitalRead(AD7705_DRDY) == HIGH && timeout-- > 0) {
-    delayMicroseconds(100);
-  }
-  
-  if(timeout <= 0) {
-    return -1;
-  }
-  
-  uint16_t rawData = ad7705_read_data();
-  float voltage = (rawData / 65535.0) * 3.3;
-  
-  return voltage;
-}
-
-// ========== ADS1115 & PM02函数 ==========
-void ads1115_init() {
-  if (!ads.begin()) {
-    Serial.println("ADS1115初始化失败!");
-    while (1);
-  }
-  
-  ads.setGain(GAIN_TWOTHIRDS);
-  Serial.println("ADS1115初始化完成");
-}
-
-void read_pm02_data(float &voltage, float &current) {
-  int16_t adc0 = ads.readADC_SingleEnded(0);
-  int16_t adc1 = ads.readADC_SingleEnded(1);
-  
-  float voltage_adc = adc0 * ADC_TO_VOLTAGE;
-  float current_adc = adc1 * ADC_TO_VOLTAGE;
-  
-  voltage = voltage_adc * VOLTAGE_DIVIDER;
-  current = current_adc * CURRENT_SCALE;
-  
-  if(current < 0.1) current = 0.0;
-}
-
-// ========== BLHeli32电调数据读取 ==========
-void blheli32_init() {
-  ESCSerial.begin(115200, SERIAL_8N1, ESC_RX_PIN, ESC_TX_PIN);
-  Serial.println("BLHeli32串口初始化完成");
-  
-  escData.rpm = 0;
-  escData.voltage = 0;
-  escData.current = 0;
-  escData.temp = 0;
-  escData.lastUpdate = 0;
-}
-
-// 解析BLHeli32 telemetry数据帧
-bool parse_blheli32_frame(uint8_t* frame) {
-  // 验证帧头
-  if(frame[0] != BLHELI_HEADER) return false;
-  
-  // 计算校验和
-  uint8_t crc = 0;
-  for(int i = 0; i < BLHELI_FRAME_LENGTH - 1; i++) {
-    crc ^= frame[i];
-  }
-  
-  if(crc != frame[BLHELI_FRAME_LENGTH - 1]) return false;
-  
-  // 解析数据
-  // BLHeli32标准格式: [Header][Temp][Voltage_H][Voltage_L][Current_H][Current_L][RPM_H][RPM_L][CRC]
-  escData.temp = frame[1];
-  escData.voltage = ((frame[2] << 8) | frame[3]) / 100.0;  // 单位: 0.01V
-  escData.current = ((frame[4] << 8) | frame[5]) / 100.0;  // 单位: 0.01A
-  escData.rpm = (frame[6] << 8) | frame[7];
-  escData.lastUpdate = millis();
-  
-  return true;
-}
-
-void read_blheli32_data() {
-  static uint8_t frameBuffer[BLHELI_FRAME_LENGTH];
-  static uint8_t frameIndex = 0;
-  
-  while(ESCSerial.available()) {
-    uint8_t byte = ESCSerial.read();
+void onTimer1() {
+  char resultStr[200];
+  sprintf(resultStr, "%.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f",
+        lastAx, lastAy, lastAz, lastGx, lastGy, lastGz, lastMx, lastMy, lastMz, lastTmp);
+  if (start_log) {
     
-    // 检测帧头
-    if(byte == BLHELI_HEADER) {
-      frameIndex = 0;
-    }
+  }
+  if (start_wifi_broadcast) {
     
-    frameBuffer[frameIndex++] = byte;
-    
-    // 接收完整帧
-    if(frameIndex >= BLHELI_FRAME_LENGTH) {
-      parse_blheli32_frame(frameBuffer);
-      frameIndex = 0;
-    }
   }
 }
 
-// ========== PWM测量函数 ==========
-void pwm_init() {
-  pinMode(PWM_INPUT_PIN, INPUT);
-  attachInterrupt(digitalPinToInterrupt(PWM_INPUT_PIN), pwm_isr, CHANGE);
-  Serial.println("PWM测量初始化完成");
-}
-
-uint16_t get_pwm_width() {
-  if(pwm_new_data) {
-    pwm_new_data = false;
-    return pwm_pulse_width;
+void onTimer2() {
+  if (screen_fresh_cnt < 800) {
+    myscreen.set_Line1("T:" + myClock.getCurrentTime());
+    myscreen.set_Line2("cur:"+String(myData.lastCur,2)+","+"vol:"+String(myData.lastVol,2));
+    myscreen.set_Line3("pwr:"+String(myData.lastPwr,2)+","+"thr:"+String(myData.lastThr,2));
+    myscreen.set_Line4("rpm:"+String(myData.lastRpm,2)+","+"cmd:"+String(myData.lastCmd,2));
+    myscreen.set_Line5("ESCtmp:"+String(myData.lastEscTmp,2));
+    myscreen.OLED_UpdateRam();
+    myscreen.OLED_Refresh();
+    screen_fresh_cnt++;
   }
-  return 0;  // 没有新数据
+  else {
+    myscreen.OLED_Reset_Display();
+    screen_fresh_cnt = 0;
+  }
 }
 
-// ========== WiFi函数 ==========
+
 void wifi_init() {
-  Serial.print("连接WiFi: ");
+  Serial.print("Connecting to WiFi: ");
   Serial.println(ssid);
-  
   WiFi.begin(ssid, password);
   
   int timeout = 0;
   while (WiFi.status() != WL_CONNECTED && timeout < 30) {
-    delay(500);
+    delay(50);
     Serial.print(".");
     timeout++;
   }
   
   if(WiFi.status() == WL_CONNECTED) {
-    Serial.println("\nWiFi连接成功!");
-    Serial.print("IP地址: ");
+    Serial.println("\nWiFi connected!");
+    Serial.print("Local IP: ");
     Serial.println(WiFi.localIP());
   } else {
-    Serial.println("\nWiFi连接失败!");
+    Serial.println("\nWiFi connection failed!");
   }
 }
 
-// ========== 数据发送函数 ==========
 void send_udp_data() {
-  // 构建JSON格式数据
-  char buffer[512];
+  char buffer[512];  // in JSON format
   snprintf(buffer, sizeof(buffer), 
     "{"
     "\"ts\":%lu,"
@@ -323,17 +109,24 @@ void send_udp_data() {
     sensorData.esc_temp,
     sensorData.pwm_width
   );
-  
-  // 发送UDP数据包
+
   udp.beginPacket(udpAddress, udpPort);
   udp.write((uint8_t*)buffer, strlen(buffer));
   udp.endPacket();
   
-  // 串口打印
-  Serial.println(buffer);
+  Serial.println("Sent UDP packet.");
 }
 
-// ========== 主函数 ==========
+
+
+
+
+
+
+
+
+
+
 void setup() {
   Serial.begin(115200);
   delay(1000);

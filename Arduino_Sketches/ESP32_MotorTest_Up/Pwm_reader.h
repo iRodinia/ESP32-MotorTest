@@ -31,7 +31,7 @@ private:
     }
 
 public:
-    MyPwmReader(uint8_t inputPin) : pin(inputPin), riseTime(0), pulseWidth(1500), newData(false) {
+    MyPwmReader(uint8_t inputPin = 27) : pin(inputPin), riseTime(0), pulseWidth(1500), newData(false) {
         instance = this;
     }
 

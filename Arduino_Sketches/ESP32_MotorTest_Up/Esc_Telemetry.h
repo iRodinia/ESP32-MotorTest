@@ -4,7 +4,7 @@
 #include <Arduino.h>
 #include <SoftwareSerial.h>
 
-// BLHeli32 KISS遥测数据结构
+// BLHeli32 KISS structure
 struct EscTelemetryData {
   float temperature;      // 温度 (°C)
   float voltage;          // 电压 (V)
@@ -16,7 +16,7 @@ struct EscTelemetryData {
   unsigned long timestamp; // 最后更新时间戳
 };
 
-// 统计信息
+// reading statics
 struct TelemetryStats {
   uint32_t totalFrames;      // 总接收帧数
   uint32_t validFrames;      // 有效帧数

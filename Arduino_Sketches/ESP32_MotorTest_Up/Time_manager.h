@@ -12,6 +12,7 @@ public:
   ~MyTimer();
   bool init(const WiFiUDP &myudp);
   bool getStatus();
+  String getCurrentTime();
   String getCurrentDateTime();
   unsigned long getLocalTimeMs();
   int resetTimer();
@@ -50,6 +51,17 @@ MyTimer::~MyTimer(){
 
 bool MyTimer::getStatus(){
   return timer_avaliable;
+}
+
+String MyTimer::getCurrentTime(){
+  if(!timer_avaliable){
+    Serial.println("Unable to get time.");
+    return String("ND");
+  }
+  time_t t = now();
+  char timeStr[9];
+  snprintf(timeStr, sizeof(timeStr), "%02d:%02d:%02d", hour(t), minute(t), second(t));
+  return String(timeStr);
 }
 
 String MyTimer::getCurrentDateTime(){
