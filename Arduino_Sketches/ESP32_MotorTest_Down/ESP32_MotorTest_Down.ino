@@ -7,7 +7,7 @@
 #include "SD_manager.h"
 #include "12864_display.h"
 #include "IMU_GY85_manager.h"
-#include "helper_functions.h"
+#include "helper_functions_down.h"
 
 #define LED_PIN 2  // LED on means initializaiton done, LED blink means data sending
 #define LED_TOGGLE() digitalWrite(LED_PIN, digitalRead(LED_PIN) ^ 1)

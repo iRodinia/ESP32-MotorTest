@@ -121,7 +121,7 @@ public:
     }
   }
 
-  void begin(int8_t rxPin, int8_t txPin = -1, long baudRate = 115200) {
+  void begin(int8_t rxPin = 26, int8_t txPin = -1, long baudRate = 115200) {
     _serial = new SoftwareSerial(rxPin, txPin);
     _serial->begin(baudRate);
     Serial.print("ESC serial initializing.");
