@@ -29,6 +29,7 @@ bool start_wifi_broadcast = false;  // wifi data sending status
 uint32_t start_record_lt = 0;  // start recording local time ms
 uint32_t DEFAULT_TIME = 1357041600;  // Jan 1 2013
 uint32_t screen_fresh_cnt = 0;
+String log_headline = "GlobalTime,LocalTime,EscCurrent,EscVoltage,EscPower,EscTemperature,Command,MotorRpm,MotorForce,AccelerationX,AccelerationY,AccelerationZ,GyroscopeX,GyroscopeY,GyroscopeZ,MagnetX,MagnetY,MagnetZ";
 
 WiFiUDP udp;
 MyDisplay myScreen;
@@ -108,22 +109,45 @@ void setup() {
   Serial.begin(115200);
   delay(500);
   Serial.println("\n===== ESP32 Motor Test MCU (Up) Initializing =====");
-  
-  Serial.println("Starting the data serial (Serial 2: Rx-16, Tx-17).");
+
   Serial2.begin(115200);  // Rx-16, Tx-17
   while(!Serial2)
     delay(10);
-  Serial.println("Initialized data serial.");
 
+  Serial.println("Initializing submodules...");
   wifi_init();
   myScreen.init();
-  myClock.init(udp);
+  Serial.println("OLED inited.");
+  while(!myClock.getStatus()){
+    myClock.init(udp);
+    delay(50);
+  }
+  Serial.println("Time manager inited.");
+  while(!mySd.checkCardStatus()){
+    mySd.init();
+    delay(50);
+  }
+  Serial.println("SD card inited.");
   myGauge.init();
-  myMonitor.init();
+  Serial.println("Force gauge inited.");
+  while(!myMonitor.isInitialized()){
+    myMonitor.init();
+    delay(50);
+  }
+  Serial.println("Power monitor inited.");
   myEsc.begin();
+  Serial.println("ESC telemetry inited.");
   myReceiver.begin();
+  Serial.println("PWM monitor inited.");
   
-  Serial.println("===== 系统初始化完成 =====\n");
+  Serial.println("===== System initialization done. =====\n");
+
+  mySd.set_folder_name(myClock.getCurrentDate());
+  if(mySd.create_file(log_headline, myClock.getCurrentDateTime()) < 0){
+    Serial.println("SD file creation failed. Abort.");
+    while(1);
+  }
+  
 }
 
 void loop() {
