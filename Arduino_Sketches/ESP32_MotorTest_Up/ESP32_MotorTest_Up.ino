@@ -30,6 +30,8 @@ uint32_t start_record_lt = 0;  // start recording local time ms
 uint32_t DEFAULT_TIME = 1357041600;  // Jan 1 2013
 uint32_t screen_fresh_cnt = 0;
 String log_headline = "GlobalTime,LocalTime,EscCurrent,EscVoltage,EscPower,EscTemperature,Command,MotorRpm,MotorForce,AccelerationX,AccelerationY,AccelerationZ,GyroscopeX,GyroscopeY,GyroscopeZ,MagnetX,MagnetY,MagnetZ";
+String up_cmd;
+bool cmd_received = false;
 
 WiFiUDP udp;
 MyDisplay myScreen;
@@ -94,7 +96,15 @@ void wifi_init() {
   Serial.println(WiFi.localIP());
 }
 
-
+void Serial2Event() {
+  while (Serial2.available()) {
+    char inChar = (char)Serial2.read();
+    up_cmd += inChar;
+    if (inChar == '\n') {
+      cmd_received = true;
+    }
+  }
+}
 
 
 
@@ -109,6 +119,9 @@ void setup() {
   Serial.begin(115200);
   delay(500);
   Serial.println("\n===== ESP32 Motor Test MCU (Up) Initializing =====");
+
+  pinMode(LED_PIN, OUTPUT);
+  digitalWrite(LED_PIN, LOW);
 
   Serial2.begin(115200);  // Rx-16, Tx-17
   while(!Serial2)
@@ -142,54 +155,50 @@ void setup() {
   
   Serial.println("===== System initialization done. =====\n");
 
+  int retryNum = 0;
   mySd.set_folder_name(myClock.getCurrentDate());
-  if(mySd.create_file(log_headline, myClock.getCurrentDateTime()) < 0){
+  while(mySd.create_file(log_headline, myClock.getCurrentDateTime()) < 0 && retryNum < 10){
+    retryNum++;
+    delay(100);
+  }
+  if(!mySd.checkFileStatus()){
     Serial.println("SD file creation failed. Abort.");
     while(1);
   }
+
+  timer1 = timerBegin(1000000);
+  if(timer1 == NULL) {
+    Serial.println("Data broadcasting timer initialization failed!");
+    while(1);
+  }
+  timerAlarm(timer1, 80000, true, 0);
+  timerAttachInterrupt(timer1, &onTimer1);
+  Serial.println("Data broadcasting timer initialized.");
+  delay(50);
+
+  timer2 = timerBegin(1000000);
+  if(timer2 == NULL) {
+    Serial.println("OLED Timer initialization failed!");
+    while(1);
+  }
+  timerAlarm(timer2, 300000, true, 0);
+  timerAttachInterrupt(timer2, &onTimer2);
+  Serial.println("Screen timer initialized.");
+  delay(50);
+
+
+  unsigned long time_now = now();
+  Serial2.println("T:"+String(time_now));
+
+
+
+
+
+  LED_TOGGLE();
+  delay(50);
   
 }
 
 void loop() {
-  unsigned long currentTime = millis();
   
-  // 持续读取BLHeli32数据
-  read_blheli32_data();
-  
-  // 每0.1秒采集并发送一次数据
-  if(currentTime - lastSendTime >= sendInterval) {
-    lastSendTime = currentTime;
-    
-    // 读取AD7705数据
-    sensorData.ad7705_voltage = ad7705_read_voltage();
-    
-    // 读取PM02数据
-    read_pm02_data(sensorData.battery_voltage, sensorData.battery_current);
-    
-    // 读取BLHeli32数据
-    sensorData.esc_rpm = escData.rpm;
-    sensorData.esc_voltage = escData.voltage;
-    sensorData.esc_current = escData.current;
-    sensorData.esc_temp = escData.temp;
-    
-    // 读取PWM脉宽
-    uint16_t pwm = get_pwm_width();
-    if(pwm > 0) {
-      sensorData.pwm_width = pwm;
-    }
-    
-    // 记录时间戳
-    sensorData.timestamp = currentTime;
-    
-    // 如果WiFi连接正常,发送数据
-    if(WiFi.status() == WL_CONNECTED) {
-      send_udp_data();
-    } else {
-      Serial.println("WiFi未连接,尝试重连...");
-      wifi_init();
-    }
-  }
-  
-  // 简短延时
-  delay(1);
 }
