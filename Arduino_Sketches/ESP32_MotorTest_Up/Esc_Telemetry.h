@@ -208,7 +208,7 @@ public:
       output->print("Current: "); output->print(_data.current, 2); output->println(" A");
       output->print("Power: "); output->print(getPower(), 2); output->println(" W");
       output->print("Consumption: "); output->print(_data.consumption); output->println(" mAh");
-      output->print("RPM: "); output->println(_data.rpm);
+      output->print("RPM: "); output->println(_data.erpm);
       output->println("====================");
     } else {
       output->println("ESC Telemetry: No valid data");

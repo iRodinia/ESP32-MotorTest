@@ -30,7 +30,7 @@ MyPowerMonitor::MyPowerMonitor() : _initialized(false), _address(0x48) {
 
 bool MyPowerMonitor::init() {
     _address = 0x48;
-    if (!ads.begin(address)) {
+    if (!ads.begin(_address)) {
         _initialized = false;
         return false;
     }

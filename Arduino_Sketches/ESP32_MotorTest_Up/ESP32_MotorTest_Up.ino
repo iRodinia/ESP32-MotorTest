@@ -13,6 +13,7 @@
 #include "Power_monitor.h"
 #include "Esc_Telemetry.h"
 #include "Pwm_reader.h"
+#include "helper_functions_up.h"
 
 #define LED_PIN 2  // LED on means initializaiton done, LED blink means data sending
 #define LED_TOGGLE() digitalWrite(LED_PIN, digitalRead(LED_PIN) ^ 1)
@@ -21,16 +22,19 @@ const char* ssid = "BioInBot_Lab";
 const char* password = "11223344";
 String udpAddress = "192.168.1.100";  // target udp ip address
 int udpPort = 12345;  // target udp port
-hw_timer_t *timer1 = NULL;
-hw_timer_t *timer2 = NULL;
+hw_timer_t *timer1 = NULL;  // record the data
+hw_timer_t *timer2 = NULL;  // refresh the OLED
 
+MCU_Up_Data myData;
 bool start_log = false;  // data sending status
 bool start_wifi_broadcast = false;  // wifi data sending status
 uint32_t start_record_lt = 0;  // start recording local time ms
 uint32_t DEFAULT_TIME = 1357041600;  // Jan 1 2013
 uint32_t screen_fresh_cnt = 0;
+uint32_t lastSensorFastUpdate = 0;
+uint32_t lastSensorSlowUpdate = 0;
 String log_headline = "GlobalTime,LocalTime,EscCurrent,EscVoltage,EscPower,EscTemperature,Command,MotorRpm,MotorForce,AccelerationX,AccelerationY,AccelerationZ,GyroscopeX,GyroscopeY,GyroscopeZ,MagnetX,MagnetY,MagnetZ";
-String up_cmd;
+String mcu_down_data = "";
 bool cmd_received = false;
 
 WiFiUDP udp;
@@ -48,7 +52,7 @@ void onTimer1() {
   char resultStr[400];
   convert_data_to_string(myData, resultStr);
   if (start_log) {
-    mysd.record(String(resultStr));
+    mySd.record(String(resultStr));
     LED_TOGGLE();
   }
   if (start_wifi_broadcast) {
@@ -99,16 +103,12 @@ void wifi_init() {
 void Serial2Event() {
   while (Serial2.available()) {
     char inChar = (char)Serial2.read();
-    up_cmd += inChar;
+    mcu_down_data += inChar;
     if (inChar == '\n') {
       cmd_received = true;
     }
   }
 }
-
-
-
-
 
 
 
@@ -155,6 +155,8 @@ void setup() {
   
   Serial.println("===== System initialization done. =====\n");
 
+  myGauge.calibrate();
+
   int retryNum = 0;
   mySd.set_folder_name(myClock.getCurrentDate());
   while(mySd.create_file(log_headline, myClock.getCurrentDateTime()) < 0 && retryNum < 10){
@@ -200,5 +202,35 @@ void setup() {
 }
 
 void loop() {
-  
+  if (Serial2.available()) {
+    Serial2Event();
+  }
+  if(cmd_received){
+    String _command = mcu_down_data;
+    mcu_down_data = "";
+    cmd_received = false;
+    // Process_Command(_command);
+  }
+
+  if(millis() - lastSensorSlowUpdate > 97) {
+    lastSensorSlowUpdate = millis();
+    float _volt, _curr, _force;
+    myMonitor.readPower(_volt, _curr);
+    myData.lastVol = _volt;
+    myData.lastCur = _curr;
+    myData.lastPwr = _volt * _curr;
+    myGauge.getForceCalibrated(myData.lastThr);
+  }
+
+  if(millis() - lastSensorFastUpdate > 47) {
+    lastSensorFastUpdate = millis();
+    myEsc.update();
+    if(myEsc.isValid()){
+      myData.lastRpm = myEsc.getRPMRaw();
+      myData.lastEscTmp = myEsc.getTemperature();
+    }
+    if(myReceiver.hasNewData()){
+      myData.lastCmd = myReceiver.getThrottle();
+    }
+  }
 }

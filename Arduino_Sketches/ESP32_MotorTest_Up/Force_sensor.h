@@ -60,16 +60,22 @@ float MyForceSensor::getZeroForce(){
   return _zero_volt;
 }
 
-int getForceRaw(float& force){
-  float volt_read = _my_sensor->readADResult(AD770X::CHN_AIN1);
-  force = volt_read / _max_volt * _max_force;
-  return 0;
+int MyForceSensor::getForceRaw(float& force){
+  if(_inited){
+    float volt_read = _my_sensor->readADResult(AD770X::CHN_AIN1);
+    force = volt_read / _max_volt * _max_force;
+    return 0;
+  }
+  return -1;
 }
 
-int getForceCalibrated(float& force){
-  float volt_read = _my_sensor->readADResult(AD770X::CHN_AIN1, _zero_volt);
-  force = volt_read / _max_volt * _max_force;
-  return 0;
+int MyForceSensor::getForceCalibrated(float& force){
+  if(_inited){
+    float volt_read = _my_sensor->readADResult(AD770X::CHN_AIN1, _zero_volt);
+    force = volt_read / _max_volt * _max_force;
+    return 0;
+  }
+  return -1;
 }
 
 #endif
