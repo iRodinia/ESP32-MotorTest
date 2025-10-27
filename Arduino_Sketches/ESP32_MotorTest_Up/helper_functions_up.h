@@ -14,7 +14,6 @@ struct MCU_Up_Data {
   float lastEscTmp = 0;  // in centidegree
 };
 
-
 void convert_data_to_string(MCU_Up_Data data, char* resultStr) {
   sprintf(resultStr, "%s,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f",
         data.glbT, data.lcaT, data.lastCur, data.lastVol, data.lastPwr, 

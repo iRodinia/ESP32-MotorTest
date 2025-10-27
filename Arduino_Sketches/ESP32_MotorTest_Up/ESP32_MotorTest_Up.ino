@@ -9,8 +9,7 @@
 #include "12864_display.h"
 #include "SD_manager.h"
 #include "Time_manager.h"
-#include "Force_sensor.h"
-#include "Power_monitor.h"
+
 #include "Esc_Telemetry.h"
 #include "Pwm_reader.h"
 #include "helper_functions_up.h"
@@ -49,11 +48,10 @@ MyPwmReader myReceiver;
 void onTimer1() {
   sprintf(myData.glbT, "%02d:%02d:%02d", hour(), minute(), second());
   myData.lcaT = (millis() - start_record_lt) / 1000.0f;
-  char resultStr[400];
+  char resultStr[300];
   convert_data_to_string(myData, resultStr);
   if (start_log) {
-    mySd.record(String(resultStr));
-    LED_TOGGLE();
+    mySd.logMessage(resultStr);
   }
   if (start_wifi_broadcast) {
     if (WiFi.status() == WL_CONNECTED){
@@ -120,8 +118,7 @@ void setup() {
   delay(500);
   Serial.println("\n===== ESP32 Motor Test MCU (Up) Initializing =====");
 
-  pinMode(LED_PIN, OUTPUT);
-  digitalWrite(LED_PIN, LOW);
+  
 
   Serial2.begin(115200);  // Rx-16, Tx-17
   while(!Serial2)
@@ -173,7 +170,7 @@ void setup() {
     Serial.println("Data broadcasting timer initialization failed!");
     while(1);
   }
-  timerAlarm(timer1, 80000, true, 0);
+  timerAlarm(timer1, 300000, true, 0);
   timerAttachInterrupt(timer1, &onTimer1);
   Serial.println("Data broadcasting timer initialized.");
   delay(50);
