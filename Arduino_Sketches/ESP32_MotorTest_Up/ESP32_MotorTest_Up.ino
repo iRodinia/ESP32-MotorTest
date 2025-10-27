@@ -14,9 +14,6 @@
 #include "Pwm_reader.h"
 #include "helper_functions_up.h"
 
-#define LED_PIN 2  // LED on means initializaiton done, LED blink means data sending
-#define LED_TOGGLE() digitalWrite(LED_PIN, digitalRead(LED_PIN) ^ 1)
-
 const char* ssid = "BioInBot_Lab";
 const char* password = "11223344";
 String udpAddress = "192.168.1.100";  // target udp ip address

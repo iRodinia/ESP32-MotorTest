@@ -6,24 +6,24 @@
 
 // BLHeli32 KISS structure
 struct EscTelemetryData {
-  float temperature;      // 温度 (°C)
-  float voltage;          // 电压 (V)
-  float current;          // 电流 (A)
-  float consumption;      // 电量消耗 (mAh)
-  uint16_t erpm;          // 电子转速 (ERPM)
-  uint8_t crc;           // CRC校验值
-  bool valid;            // 数据是否有效
-  unsigned long timestamp; // 最后更新时间戳
+  float temperature;  // temperature (C)
+  float voltage;  // voltage (V)
+  float current;  // current (A)
+  float consumption;  // power cosumption (mAh)
+  uint16_t erpm;  // electric rpm (ERPM)
+  uint8_t crc;  // CRC test
+  bool valid;  // if the data is valid
+  unsigned long timestamp;  // last update timestamp
 };
 
 // reading statics
 struct TelemetryStats {
-  uint32_t totalFrames;      // 总接收帧数
-  uint32_t validFrames;      // 有效帧数
-  uint32_t crcErrors;        // CRC错误数
-  uint32_t timeoutErrors;    // 超时错误数
-  float updateRate;          // 更新频率 (Hz)
-  unsigned long lastStatsReset; // 上次统计重置时间
+  uint32_t totalFrames;  // toatal frames received
+  uint32_t validFrames;  // valid frames received
+  uint32_t crcErrors;  // CRC error number
+  uint32_t timeoutErrors;  // timeout error number
+  float updateRate;  // update frequency (Hz)
+  unsigned long lastStatsReset;  // time from last reset (ms)
 };
 
 class MyEscTelemetry {
@@ -47,7 +47,6 @@ private:
   unsigned long _frameTimeout;
   unsigned long _frameStartTime;
   
-  // CRC8校验
   uint8_t calculateCRC8(uint8_t* data, uint8_t length) {
     uint8_t crc = 0;
     for (uint8_t i = 0; i < length; i++) {
@@ -103,7 +102,7 @@ private:
   }
 
 public:
-  MyEscTelemetry() {
+  MyEscTelemetry(uint8_t motor_pole_pair = 7) {
     _serial = nullptr;
     _bufferIndex = 0;
     _frameStarted = false;
@@ -112,7 +111,7 @@ public:
     _lastUpdateTime = 0;
     _updateCount = 0;
     _frameStartTime = 0;
-    _motor_pole_num = 7;
+    _motor_pole_num = motor_pole_pair;
   }
 
   ~MyEscTelemetry() {

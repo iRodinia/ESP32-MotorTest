@@ -10,28 +10,27 @@ class MyTimer {
 public:
   MyTimer(){};
   ~MyTimer();
-  bool init(WiFiUDP &myudp);
-  bool getStatus();
+  String init(WiFiUDP &myudp);
   String getCurrentTime();
   String getCurrentDate();
   String getCurrentDateTime();
-  unsigned long getLocalTimeMs();
   int resetTimer();
 
 private:
-  bool timer_avaliable = false;
-  unsigned long localStartTimeMs = 0;
   NTPClient* timeSyncPt;
 };
 
-bool MyTimer::init(WiFiUDP &myudp){
-  timeSyncPt = new NTPClient(myudp, "pool.ntp.org", 28800);  // GMT+8
-  if(timeSyncPt == nullptr){
-    Serial.println("Initialize local timer failed.");
-    timer_avaliable = false;
-    return false;
+String MyTimer::init(WiFiUDP &myudp){
+  uint8_t initNum = 0;
+  while(!timeSyncPt && initNum < 10){
+    timeSyncPt = new NTPClient(myudp, "pool.ntp.org", 28800);  // GMT+8
+    initNum++;
+    delay(50);
   }
-  Serial.println("Local timer initialized. Wait for sync.");
+  if(initNum >= 20){
+    return "Timer initialization failed.";
+  }
+  Serial.println("Timer initialized. Wait for network sync.");
   timeSyncPt->begin();
   while (!timeSyncPt->update()) {
     delay(500);
@@ -39,9 +38,7 @@ bool MyTimer::init(WiFiUDP &myudp){
   }
   setTime(timeSyncPt->getEpochTime());
   Serial.println("\nLocal timer synced.");
-  localStartTimeMs = millis();
-  timer_avaliable = true;
-  return true;
+  return "";
 }
 
 MyTimer::~MyTimer(){
@@ -50,15 +47,7 @@ MyTimer::~MyTimer(){
   }
 }
 
-bool MyTimer::getStatus(){
-  return timer_avaliable;
-}
-
 String MyTimer::getCurrentTime(){
-  if(!timer_avaliable){
-    Serial.println("Unable to get time.");
-    return String("ND");
-  }
   time_t t = now();
   char timeStr[9];
   snprintf(timeStr, sizeof(timeStr), "%02d:%02d:%02d", hour(t), minute(t), second(t));
@@ -66,10 +55,6 @@ String MyTimer::getCurrentTime(){
 }
 
 String MyTimer::getCurrentDate(){
-  if(!timer_avaliable){
-    Serial.println("Unable to get time.");
-    return String("ND");
-  }
   time_t t = now();
   char timeStr[11];
   snprintf(timeStr, sizeof(timeStr), "%04d-%02d-%02d", year(t), month(t), day(t));
@@ -77,39 +62,25 @@ String MyTimer::getCurrentDate(){
 }
 
 String MyTimer::getCurrentDateTime(){
-  if(!timer_avaliable){
-    Serial.println("Unable to get time.");
-    return String("ND");
-  }
   time_t t = now();
   char timeStr[19];
   snprintf(timeStr, sizeof(timeStr), "%04d-%02d-%02d_%02d:%02d:%02d", year(t), month(t), day(t), hour(t), minute(t), second(t));
   return String(timeStr);
 }
 
-unsigned long MyTimer::getLocalTimeMs(){
-  if(!timer_avaliable){
-    Serial.println("Unable to get time.");
-    return -1;
-  }
-  return millis() - localStartTimeMs;
-}
-
 int MyTimer::resetTimer(){
   if(timeSyncPt == nullptr){
     Serial.println("Local timer not exist.");
-    timer_avaliable = false;
     return -1;
   }
-  Serial.println("Wait for local timer to sync.");
+  Serial.println("Wait for network sync.");
   while (!timeSyncPt->update()) {
     delay(500);
     Serial.print(".");
   }
   setTime(timeSyncPt->getEpochTime());
-  Serial.println("\nLocal timer synced.");
-  localStartTimeMs = millis();
-  timer_avaliable = true;
+  Serial.println("\nTimer synced.");
+  return 0;
 }
 
 #endif

@@ -8,7 +8,7 @@
 
 #include "helper_functions_up.h"
 
-#define LED_PIN 2  // LED blink means data flushing to SD card
+#define LED_PIN 2  // LED blink means data recording, LED on means flushing to SD card
 #define LED_TOGGLE() digitalWrite(LED_PIN, digitalRead(LED_PIN) ^ 1)
 
 // SD card 
