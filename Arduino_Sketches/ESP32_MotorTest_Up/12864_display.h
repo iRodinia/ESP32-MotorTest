@@ -68,7 +68,7 @@ private:
 class MyDisplay {
 public:
   MyDisplay(uint8_t scl=33, uint8_t sda=32);
-  bool init();  // init the display
+  String init();  // init the display
   void OLED_Reset_Display(void);  // reset to fix pixel shift
   void OLED_Clear(void);  // clear display
   void OLED_UpdateRam(void);  // upload the strings to RAM
@@ -110,7 +110,7 @@ MyDisplay::MyDisplay(uint8_t scl, uint8_t sda){
   _sda = sda;
 }
 
-bool MyDisplay::init(){
+String MyDisplay::init(){
   pinMode(_scl, OUTPUT);
   pinMode(_sda, OUTPUT);
   _i2c_port.init(_scl, _sda);
@@ -152,7 +152,7 @@ bool MyDisplay::init(){
   set_Line4(" ");
   set_Line5(" ");
   set_Checkbox(false);
-  return true;
+  return "";
 }
 
 void MyDisplay::OLED_Reset_Display(void){

@@ -6,13 +6,14 @@
 #include <SD.h>
 #include <SPI.h>
 
+// SD card 
 // ESP32WroomDA module default pin assignments:
 // sck = 18; miso = 19; mosi = 23; cs = 5;
 
 class SDCard {
 public:
   SDCard(uint8_t sck=18, uint8_t miso=19, uint8_t mosi=23, uint8_t cs=5);
-  bool init();
+  String init();
   bool checkCardStatus();
   bool checkFileStatus();
   int set_folder_name(String folder_name = "default_folder");
@@ -21,6 +22,7 @@ public:
   int clear_logs(String folder_path = "/default_folder");
 
 private:
+  const uint64_t MIN_FREE_SPACE = 2 * 1024 * 1024;
   uint8_t _sck, _miso, _mosi, _cs;
   bool _card_mounted = false;
   bool _file_created = false;
@@ -39,28 +41,35 @@ SDCard::SDCard(uint8_t sck, uint8_t miso, uint8_t mosi, uint8_t cs){
   _file_created = false;
 }
 
-bool SDCard::init(){
+String SDCard::init(){
   SPI.begin(_sck, _miso, _mosi, _cs);
   SPI.setFrequency(4000000);
-  if(!SD.begin(_cs)){
-    Serial.println("Card mount failed");
-    _card_mounted = false;
-    return false;
+
+  uint8_t initNum = 0;
+  while(!SD.begin() && initNum < 10) {
+    initNum++;
+    delay(50);
   }
-  Serial.println("Card mount succeeded.");
+  if(initNum >= 10){
+    _card_mounted = false;
+    return "Card not mounted. SD initializaiton failed.";
+  }
   _card_mounted = true;
-  uint64_t card_free_space = (SD.totalBytes() - SD.usedBytes()) / (1024 * 1024);
-  if(card_free_space <= 2){
-    Serial.printf("SD Card Free Space not enough: %lluMB\n", card_free_space);
-    Serial.println("Clearing existing log files.");
+
+  if(SD.totalBytes() - SD.usedBytes() <= MIN_FREE_SPACE){
+    Serial.println("SD Card Free Space not enough. Clearing existing log files.");
     clear_logs("/");
   }
-  _file_created = false;
-  return true;
+  return "";
 }
 
 bool SDCard::checkCardStatus(){
-  return _card_mounted;
+  if(_card_mounted){
+    if(SD.totalBytes() - SD.usedBytes() > 1024){
+      return true;
+    }
+  }
+  return false;
 }
 
 bool SDCard::checkFileStatus(){
