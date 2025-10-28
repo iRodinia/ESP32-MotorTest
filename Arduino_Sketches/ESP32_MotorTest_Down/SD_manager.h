@@ -6,27 +6,43 @@
 #include <SD.h>
 #include <SPI.h>
 
+#define LED_PIN 2  // LED blink means data recording, LED on means flushing to SD card
+#define LED_TOGGLE() digitalWrite(LED_PIN, digitalRead(LED_PIN) ^ 1)
+
+#define MAX_LINE_NUM 600
+#define MAX_LINE_LEN 120
+
+// SD card 
 // ESP32WroomDA module default pin assignments:
 // sck = 18; miso = 19; mosi = 23; cs = 5;
+// Log frequency recommendation: 3~5 Hz
+// Maximum buffer: 1000 lines * 280 characters
 
 class SDCard {
 public:
   SDCard(uint8_t sck=18, uint8_t miso=19, uint8_t mosi=23, uint8_t cs=5);
-  bool init();
-  bool checkCardStatus();
+  String init();
+  bool cardReady();
   bool checkFileStatus();
-  int set_folder_name(String folder_name = "default_folder");
-  int create_file(String head_line, String file_name = "default_file");
-  int record(String message);
-  int clear_logs(String folder_path = "/default_folder");
+  int setFolderName(String folder_name = "default_folder");
+  int setFileName(String file_name = "default_log");
+  int setHeadLine(String head_line = "");
+
+  int logMessage(char* message);
+  int flushToCard();
+  int clearLogs(String folder_path = "/default_folder");
 
 private:
+  const uint64_t MIN_FREE_SPACE = 2 * 1024 * 1024;  // byte
   uint8_t _sck, _miso, _mosi, _cs;
   bool _card_mounted = false;
   bool _file_created = false;
   String _folder_name = "default_folder";
-  String _file_name = "default_file";
-  String _file_path = "/default_folder/default_file.txt";
+  String _file_name = "default_log";
+  String _head_line = "";
+
+  char _log_buffer[MAX_LINE_NUM * MAX_LINE_LEN];
+  unsigned long _log_current_pos;
 };
 
 SDCard::SDCard(uint8_t sck, uint8_t miso, uint8_t mosi, uint8_t cs){
@@ -39,35 +55,37 @@ SDCard::SDCard(uint8_t sck, uint8_t miso, uint8_t mosi, uint8_t cs){
   _file_created = false;
 }
 
-bool SDCard::init(){
+String SDCard::init(){
+  _log_current_pos = 0;
+
   SPI.begin(_sck, _miso, _mosi, _cs);
   SPI.setFrequency(4000000);
-  if(!SD.begin(_cs)){
-    Serial.println("Card mount failed");
+  pinMode(LED_PIN, OUTPUT);
+  digitalWrite(LED_PIN, LOW);
+
+  uint8_t initNum = 0;
+  while(!SD.begin() && initNum < 10) {
+    initNum++;
+    delay(50);
+  }
+  if(initNum >= 10){
     _card_mounted = false;
-    return false;
+    return "Card not mounted. SD initializaiton failed.";
   }
-  Serial.println("Card mount succeeded.");
   _card_mounted = true;
-  uint64_t card_free_space = (SD.totalBytes() - SD.usedBytes()) / (1024 * 1024);
-  if(card_free_space <= 2){
-    Serial.printf("SD Card Free Space not enough: %lluMB\n", card_free_space);
-    Serial.println("Clearing existing log files.");
-    clear_logs("/");
+  return "";
+}
+
+bool SDCard::cardReady(){
+  if(_card_mounted){
+    if(SD.totalBytes() - SD.usedBytes() > 2e5){
+      return true;
+    }
   }
-  _file_created = false;
-  return true;
+  return false;
 }
 
-bool SDCard::checkCardStatus(){
-  return _card_mounted;
-}
-
-bool SDCard::checkFileStatus(){
-  return _file_created;
-}
-
-int SDCard::set_folder_name(String folder_name){
+int SDCard::setFolderName(String folder_name){
   if(folder_name.length() > 0){
     _folder_name = folder_name;
     return 0;
@@ -75,53 +93,63 @@ int SDCard::set_folder_name(String folder_name){
   return -1;
 }
 
-int SDCard::create_file(String head_line, String file_name){
-  if(!_card_mounted){
-    return -1;
-  }
-  if(_file_created){
+int SDCard::setFileName(String file_name){
+  if(file_name.length() > 0){
+    _file_name = file_name;
     return 0;
   }
+  return -1;
+}
 
-  _file_path = "/" + _folder_name + "/" + file_name + ".txt";
-  while(SD.exists(_file_path.c_str())){
-    file_name += "+";
-    _file_path = "/" + _folder_name + "/" + file_name + ".txt";
+int SDCard::setHeadLine(String head_line){
+  if(head_line.length() > 0){
+    _head_line = head_line;
   }
+  return 0;
+}
+
+int SDCard::logMessage(char* message){  // message[280]
+  if (!_log_buffer || _log_current_pos >= MAX_LINE_NUM * (MAX_LINE_LEN-1)) {
+    return -1;
+  }
+
+  int char_num = sprintf(_log_buffer+_log_current_pos, "%s\n", message);
+  _log_current_pos += char_num;
+  LED_TOGGLE();
+  return 0;
+}
+
+int SDCard::flushToCard(){
+  if(!cardReady()){
+    Serial.println("Unable to write logs to SD card.");
+    return -1;
+  }
+
+  String _file_path = "/" + _folder_name + "/" + _file_name + ".txt";
+  while(SD.exists(_file_path.c_str())){
+    _file_name += "+";
+    _file_path = "/" + _folder_name + "/" + _file_name + ".txt";
+  }
+
+  digitalWrite(LED_PIN, HIGH);
+
   File myfile = SD.open(_file_path, FILE_WRITE, true);
   if (!myfile) {
     Serial.println("Failed to create log file.");
-    _file_created = false;
     return -1;
   }
-
-  if(myfile.println(head_line)){
-    Serial.println("Log file created.");
-    _file_name = file_name;
+  if(_head_line.length() > 0){
+    myfile.println(_head_line);
   }
-  else{
-    Serial.println("Creat log file failed. Unable to write.");
-  }
+  myfile.write((uint8_t*)_log_buffer, _log_current_pos);
   myfile.close();
-  _file_created = true;
+  _log_current_pos = 0;
+
+  digitalWrite(LED_PIN, LOW);
   return 0;
 }
 
-int SDCard::record(String message){
-  if(!_card_mounted || !_file_created){
-    Serial.println("SD Log file not created. Log failed.");
-    return -1;
-  }
-
-  File myfile = SD.open(_file_path, FILE_APPEND);
-  if(!myfile.println(message)){
-    Serial.println("Log failed unexpected.");
-  }
-  myfile.close();
-  return 0;
-}
-
-int SDCard::clear_logs(String folder_path){
+int SDCard::clearLogs(String folder_path){
   if(!_card_mounted){
     return -1;
   }
@@ -137,7 +165,7 @@ int SDCard::clear_logs(String folder_path){
     String filePath = String(folder_path) + "/" + String(file.name());
     if(file.isDirectory()){
       file.close();
-      this->clear_logs(filePath.c_str());
+      this->clearLogs(filePath.c_str());
       SD.rmdir(filePath.c_str());
     }
     else{

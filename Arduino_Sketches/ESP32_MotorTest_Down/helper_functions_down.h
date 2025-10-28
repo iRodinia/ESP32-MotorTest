@@ -1,53 +1,39 @@
-#ifndef HELPER_FCNS
-#define HELPER_FCNS
+#ifndef HELPER_FCNS_DOWN
+#define HELPER_FCNS_DOWN
 
 #include <Arduino.h>
-#include <Wire.h>
-#include <TimeLib.h>
+#include <ArduinoJson.h>
 
-extern String up_cmd;
-extern bool cmd_received;
-extern bool start_log;
-extern bool start_wifi_broadcast;
-extern uint32_t startRecordLT;
+struct MCU_Down_Data {
+  char glbT[8]; float lcaT = 0;
+  float lastAx = 0; float lastAy = 0; float lastAz = 0;  // in m/s^2
+  float lastGx = 0; float lastGy = 0; float lastGz = 0;  // in rad/s
+  float lastMx = 0; float lastMy = 0; float lastMz = 0;  // in μT
+  float lastTmp = 0;  // in centigrade
+};
 
-void Serial2Event() {
-  while (Serial2.available()) {
-    char inChar = (char)Serial2.read();
-    up_cmd += inChar;
-    if (inChar == '\n') {
-      cmd_received = true;
-    }
-  }
+void convert_data_to_string(MCU_Down_Data data, char* resultStr) {
+  sprintf(resultStr, "%s,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f",
+    data.glbT, data.lcaT, data.lastAx, data.lastAy, data.lastAz, 
+    data.lastGx, data.lastGy, data.lastGz, data.lastMx, data.lastMy, data.lastMz, data.lastTmp
+  );
 }
 
-String getCurrentHmsTime(){
-  char timeStr[8];
-  snprintf(timeStr, 8, "%02d:%02d:%02d", hour(), minute(), second());
-  return String(timeStr);
-}
-
-String getCurrentTime(){
-  if(start_log){
-    if(timeStatus() != timeNotSet){
-      return getCurrentHmsTime();
-    }
-    else{
-      return String((millis()-startRecordLT)/1000.0f, 2) + "L";
-    }
-  }
-  else{
-    return "0";
-  }
-}
-
-String getCurrentDate(){
-  if(timeStatus() != timeNotSet){
-    char timeStr[10];
-    snprintf(timeStr, 10, "%04d-%02d-%02d", year(), month(), day());
-    return String(timeStr);
-  }
-  return "";
+void convert_data_to_json(MCU_Down_Data data, String& resultStr) {
+  StaticJsonDocument<480> doc;
+  doc["GlobalTime"] = data.glbT;
+  doc["LocalTime"] = data.lcaT;
+  doc["AccelerationX"] = data.lastAx;
+  doc["AccelerationY"] = data.lastAy;
+  doc["AccelerationZ"] = data.lastAz;
+  doc["GyroscopeX"] = data.lastGx;
+  doc["GyroscopeY"] = data.lastGy;
+  doc["GyroscopeZ"] = data.lastGz;
+  doc["MagnetX"] = data.lastMx;
+  doc["MagnetY"] = data.lastMy;
+  doc["MagnetZ"] = data.lastMz;
+  doc["ImuTemperature"] = data.lastTmp;
+  serializeJson(doc, resultStr);
 }
 
 bool isValidIP(String ip) {

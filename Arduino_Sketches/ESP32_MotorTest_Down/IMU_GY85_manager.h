@@ -17,7 +17,7 @@
 
 class MyIMU_GY85 {
 public:
-  bool init();
+  String init();
   int readAccelerationRaw(float& x, float& y, float& z);  // in m/s^2
   int readGyroRaw(float& x, float& y, float& z);  // in rad/s
   int readMagnetRaw(float& x, float& y, float& z);  // in µT
@@ -40,20 +40,21 @@ private:
   float _acc_x_bias, _acc_y_bias, _acc_z_bias;
 };
 
-bool MyIMU_GY85::init(){
-  _imu_initialized = false;
-  
+String MyIMU_GY85::init(){
+  int initNum = 0;
   // Initialize ADXL345 accelerometer
-  bool accel_flag = _my_accelerometer.begin();
-  if(!accel_flag){
-    Serial.println("Could not find a valid ADXL345 sensor, check wiring!");
-  }
-  else{
-    _my_accelerometer.setRange(ADXL345_RANGE_4_G);
-    Serial.println("Successfully loaded ADXL345.");
+  while(!_my_accelerometer.begin() && initNum < 10){
+    initNum++;
     delay(50);
   }
-  
+  if(initNum >= 10){
+    _imu_initialized = false;
+    return "Could not find a valid ADXL345 sensor, check wiring!";
+  }
+  _my_accelerometer.setRange(ADXL345_RANGE_4_G);
+  Serial.println("Successfully loaded ADXL345.");
+  delay(50);
+
   // Initialize ITG3205 gyroscope
   _my_gyro.init();
   _my_gyro.zeroCalibrate(128, 10);  // 128 samples, 10ms between samples
@@ -61,25 +62,23 @@ bool MyIMU_GY85::init(){
   delay(50);
   
   // Initialize HMC5883L magnetometer
-  bool mag_flag = _my_magnetometer.begin();
-  if(!mag_flag){
-    Serial.println("Could not find a valid HMC5883L sensor, check wiring!");
-  }
-  else{
-    _my_magnetometer.setMagGain(HMC5883_MAGGAIN_1_3);  // check if enough to measure the magnetic field
-    Serial.println("Successfully loaded HMC5883L.");
+  initNum = 0;
+  while(!_my_magnetometer.begin() && initNum < 10){
+    initNum++;
     delay(50);
   }
-  
-  _imu_initialized = accel_flag && mag_flag;
-  if(!_imu_initialized){
-    Serial.println("IMU module initialization failed.");
-    return false;
+  if(initNum >= 10){
+    _imu_initialized = false;
+    return "Could not find a valid HMC5883L sensor, check wiring!";
   }
+  _my_magnetometer.setMagGain(HMC5883_MAGGAIN_1_3);  // check if enough to measure the magnetic field
+  Serial.println("Successfully loaded HMC5883L.");
+  delay(50);
   
+  _imu_initialized = true;
   setDeclinationAngle(0.057);
   setAccelBias(0, 0, 0);
-  return true;
+  return "";
 }
 
 void MyIMU_GY85::setAccelBias(float dax, float day, float daz)

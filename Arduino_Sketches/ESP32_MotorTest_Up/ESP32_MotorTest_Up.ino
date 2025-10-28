@@ -188,10 +188,19 @@ void setup() {
   Serial.println("Wait for MCU (down) startup.");
   while(!Serial2.available()) delay(50);
   unsigned long time_now = now();
-  Serial2.println("T:"+String(time_now));
+  Serial2.println("Time:"+String(time_now));
   Serial.println("MCU (down) connected.");
   delay(50);
+  Serial2.println("Reset_Folder_Name");
+  delay(50);
+  Serial2.println("Reset_File_Name");
+  delay(50);
+  Serial2.println("UDP_IP:"+udpAddress);
+  delay(50);
+  Serial2.println("UDP_Port:"+String(udpPort));
+  delay(50);
 
+  start_record_lt = millis();
   flush_serial2_buffer();
 }
 
@@ -235,6 +244,7 @@ void parse_serial_cmd(String command) {
   }
   else if (command == "Stop_Record") {
     if(start_log){
+      start_record_lt = millis();
       mySd.flushToCard();
     }
     start_log = false;
@@ -273,6 +283,7 @@ void parse_serial_cmd(String command) {
     if(isValidIP(valueStr)){
       udpAddress = valueStr;
       Serial.println("UDP target IP updated: " + valueStr);
+      Serial2.println("UDP_IP:"+udpAddress);
     }
   }
   else if (command.startsWith("UDP_Port:")) {  // set udp target port number
@@ -281,6 +292,7 @@ void parse_serial_cmd(String command) {
     if(port_interger >= 1024){
       udpPort = port_interger;
       Serial.println("UDP target port updated: " + valueStr);
+      Serial2.println("UDP_Port:"+valueStr);
     }
   }
   else if (command == "H") {

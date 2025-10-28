@@ -1,3 +1,5 @@
+//ESP32-WROOM-DA multi-sensor system
+
 #include <Arduino.h>
 #include <Wire.h>  // Must include Wire here, otherwise all .h files won't include Wire
 #include <WiFi.h>
@@ -9,95 +11,149 @@
 #include "IMU_GY85_manager.h"
 #include "helper_functions_down.h"
 
-#define LED_PIN 2  // LED on means initializaiton done, LED blink means data sending
-#define LED_TOGGLE() digitalWrite(LED_PIN, digitalRead(LED_PIN) ^ 1)
-
-/*
-MCU (down) Functionality:
-Measure the acceleration, gyro and gesture in the world frame (ENU), and measure angular velocity in the body frame (FLU);
-Record and send the data by 10Hz;
-Synchronize time through UART;
-Send data through WiFi if available;
-Communicate with MCU (up) using UART, receive commands and send the data;
-Display the real-time data on the screen.
-*/
-
 const char* wifi_ssid = "BioInBot_Lab";
 const char* wifi_pswd = "11223344";
-WiFiUDP udp;
 String udpAddress = "192.168.31.240";  // receiver IP
 int udpPort = 8888;  // receiver port
+hw_timer_t *timer = NULL;  // refresh the OLED
 
-MyDisplay myscreen;  // scl-33, sda-32
-MyIMU_GY85 mysensor;  // scl-22, sda-21
-SDCard mysd(18, 23, 19, 5);  // sck = 18; miso = 23; mosi = 19; cs = 5;
-// Serial2： rx-16, tx-17
-
-hw_timer_t *timer = NULL;
-bool cmd_received = false;
+MCU_Down_Data myData;
 bool start_log = false;  // data sending status
 bool start_wifi_broadcast = false;  // wifi data sending status
+bool start_serial_echo = false;  // print data on Serial 1
 uint32_t DEFAULT_TIME = 1357041600;  // Jan 1 2013
 uint32_t screen_fresh_cnt = 0;
 uint32_t startRecordLT = 0;  // start recording local time
-uint32_t lastDataLoopT = 0;
+uint32_t lastDataUpdate = 0;
 uint32_t lastSensorFastUpdate = 0;
 uint32_t lastSensorSlowUpdate = 0;
-float lastAx = 0; float lastAy = 0; float lastAz = 0;  // in m/s^2
-float lastGx = 0; float lastGy = 0; float lastGz = 0;  // in rad/s
-float lastMx = 0; float lastMy = 0; float lastMz = 0;  // in μT
-float lastTmp = 0;  // in degree centigrade
-String up_cmd = "";  // store the received cmd from MCU (up)
+String log_headline = "GlobalTime,LocalTime,AccelerationX,AccelerationY,AccelerationZ,GyroscopeX,GyroscopeY,GyroscopeZ,MagnetX,MagnetY,MagnetZ";
+
+char serial_cmd[64];  // store the received cmd from main serial
+uint8_t serial_cmd_index = 0;
+char serial2_cmd[64];  // store the received cmd from MCU (up)
+uint8_t serial2_cmd_index = 0;
+
+WiFiUDP udp;
+MyDisplay myScreen;  // scl-33, sda-32
+MyIMU_GY85 mySensor;  // scl-22, sda-21
+SDCard mySd(18, 23, 19, 5);  //miso = 23, mosi = 19, wrong wiring...
 
 void onTimer() {
   if (screen_fresh_cnt < 800) {
-    myscreen.set_Line1("T:" + getCurrentTime());
-    myscreen.set_Line2("acc:"+String(lastAx,1)+","+String(lastAy,1)+","+String(lastAz,1));
-    myscreen.set_Line3("gyo:"+String(lastGx,1)+","+String(lastGy,1)+","+String(lastGz,1));
-    myscreen.set_Line4("mag:"+String(lastMx,1)+","+String(lastMy,1)+","+String(lastMz,1));
-    myscreen.set_Line5("tmp:"+String(lastTmp,2));
-    myscreen.OLED_UpdateRam();
-    myscreen.OLED_Refresh();
+    myScreen.set_Line1("T:" + String(myData.lcaT,2));
+    myScreen.set_Line2("acc:"+String(myData.lastAx,1)+","+String(myData.lastAy,1)+","+String(myData.lastAz,1));
+    myScreen.set_Line3("gyo:"+String(myData.lastGx,1)+","+String(myData.lastGy,1)+","+String(myData.lastGz,1));
+    myScreen.set_Line4("mag:"+String(myData.lastMx,1)+","+String(myData.lastMy,1)+","+String(myData.lastMz,1));
+    myScreen.set_Line5("tmp:"+String(myData.lastTmp,2));
+    if (start_wifi_broadcast) {
+      myScreen.set_Checkbox(true);
+    }
+    else {
+      myScreen.set_Checkbox(false);
+    }
+    myScreen.OLED_UpdateRam();
+    myScreen.OLED_Refresh();
     screen_fresh_cnt++;
   }
   else {
-    myscreen.OLED_Reset_Display();
+    myScreen.OLED_Reset_Display();
     screen_fresh_cnt = 0;
   }
 }
+
+void onSerialCmdEvent() {
+  while (Serial.available()) {
+    char inChar = (char)Serial.read();
+    if (serial_cmd_index >= 63) {
+      serial_cmd_index = 0;
+      serial_cmd[0] = '\0';
+      continue;
+    }
+    if (inChar == ' '){
+      continue;
+    }
+    serial_cmd[serial_cmd_index] = inChar;
+    serial_cmd_index;
+    if (inChar == '\n') {
+      serial_cmd[serial_cmd_index] = '\0';
+      parse_serial_cmd(String(serial_cmd));
+      serial_cmd_index = 0;
+      serial_cmd[0] = '\0';
+    }
+  }
+}
+
+void onSerial2CmdEvent() {
+  while (Serial2.available()) {
+    char inChar = (char)Serial2.read();
+    if (serial2_cmd_index >= 63) {
+      serial2_cmd_index = 0;
+      serial2_cmd[0] = '\0';
+      continue;
+    }
+    if (inChar == ' '){
+      continue;
+    }
+    serial2_cmd[serial2_cmd_index] = inChar;
+    serial2_cmd_index;
+    if (inChar == '\n') {
+      serial2_cmd[serial2_cmd_index] = '\0';
+      parse_serial_cmd(String(serial2_cmd));
+      serial2_cmd_index = 0;
+      serial2_cmd[0] = '\0';
+    }
+  }
+}
+
+void sendData() {
+  if (timeStatus() == timeNotSet) {
+    sprintf(myData.glbT, "N/A");
+  }
+  else {
+    sprintf(myData.glbT, "%02d:%02d:%02d", hour(), minute(), second());
+  }
+  myData.lcaT = (millis() - startRecordLT) / 1000.0f;
+  
+  char resultStr[250];
+  convert_data_to_string(myData, resultStr);
+  Serial2.println(resultStr);  // send data via Serial 2
+  if (start_log) {
+    mySd.logMessage(resultStr);
+  }
+  if (start_serial_echo) {
+    Serial.println(resultStr);
+  }
+  if (start_wifi_broadcast) {
+    if (WiFi.status() == WL_CONNECTED){
+      String jsonStr;
+      convert_data_to_json(myData, jsonStr);
+      udp.beginPacket(udpAddress.c_str(), udpPort);
+      udp.print(jsonStr);
+      udp.endPacket();
+    }
+    else{
+      Serial.println("WiFi connection lost! Retry to connect.");
+      WiFi.begin(wifi_ssid, wifi_pswd);
+    }
+  }
+}
+
 
 void setup(){
   Serial.begin(115200);  // usb
   while (!Serial)
     delay(10);
+  Serial.println("\n##### Start the Data Recording Board (Down) #####");
 
-  pinMode(LED_PIN, OUTPUT);
-  digitalWrite(LED_PIN, LOW);
-
-  Serial.printf("\n");
-  Serial.println("##### Start the Data Recording Board (Down) #####");
-
-  Serial.println("Starting the data serial (Serial 2: Rx-16, Tx-17).");
   Serial2.begin(115200);  // Rx-16, Tx-17
   while(!Serial2)
     delay(10);
-  Serial.println("Initialized data serial.");
-  up_cmd.reserve(200);
 
-  Serial.println("Starting the OLED screen.");
-  myscreen.init();
-  timer = timerBegin(1000000);
-  if(timer == NULL) {
-    Serial.println("OLED Timer initialization failed!");
-    while(1);
-  }
-  timerAlarm(timer, 400000, true, 0);
-  timerAttachInterrupt(timer, &onTimer);
-  Serial.println("Screen initialized.");
-  delay(50);
+  Serial.println("Set I2C to fast mode (400kHz).");
+  Wire.setClock(400000);
 
   Serial.print("Trying to conncet to Lab WiFi.");
-  WiFi.mode(WIFI_STA);
   uint8_t wifi_connect_tms = 0;
   WiFi.begin(wifi_ssid, wifi_pswd);
   while(WiFi.status() != WL_CONNECTED && wifi_connect_tms < 5){
@@ -109,178 +165,162 @@ void setup(){
     Serial.println("\nConnected to the Lab WiFi.");
     Serial.print("Local MCU (down) IP: ");
     Serial.println(WiFi.localIP());
-    udp.begin(0);
   }
   else{
     Serial.println("\nWiFi not connected.");
   }
 
-  Serial.println("Set I2C to fast mode (400kHz).");
-  Wire.setClock(400000);
-  
-  Serial.println("Starting the SD card and sensor.");
-  int init_count = 0;
-  while(!mysd.checkCardStatus() && init_count < 10){
-    mysd.init();
-    delay(200);
-    init_count += 1;
+  String init_message = "";
+  init_message += myScreen.init();
+  init_message += mySensor.init();
+  init_message += mySd.init();
+  if(init_message.length() < 2){
+    Serial.println("Submodules initialized.");
   }
-  init_count = 0;
-  while(!mysensor.checkInitStatus() && init_count < 10){
-    mysensor.init();
-    delay(200);
-    init_count += 1;
-  }
-  if(!(mysd.checkCardStatus() && mysensor.checkInitStatus())){
-    Serial.println("Device initialization failed!");
+  else{
+    Serial.println(init_message);
+    Serial.println("Abort.");
     while(1);
   }
-  Serial.println("All modules initialized.");
-  Serial.println("Data Recording Board (Down) Initialization Done.");
-  LED_TOGGLE();
+  mySd.setHeadLine(log_headline);
+  mySensor.calibrateAccel();
+
+  timer = timerBegin(1000000);
+  if(timer == NULL) {
+    Serial.println("OLED Timer initialization failed!");
+    while(1);
+  }
+  timerAlarm(timer, 400000, true, 0);
+  timerAttachInterrupt(timer, &onTimer);
+  Serial.println("Screen timer initialized.");
   delay(50);
+
+  Serial.println("##### All modules initialized #####");
+  
+  startRecordLT = millis();
 }
 
 
 void loop(){
-  ////////////// MCU (up) command /////////////////
-  if (Serial2.available()) {
-    Serial2Event();
-  }
-  if(cmd_received){
-    String _command = up_cmd;
-    up_cmd = "";
-    cmd_received = false;
-    Process_Command(_command);
-  }
-  /////////////////////////////////////////////////
+  onSerialCmdEvent();
+  onSerial2CmdEvent();
 
-  if (millis() - lastDataLoopT > 100) {
-    lastDataLoopT = millis();
-    char resultStr[200];
-    sprintf(resultStr, "%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f",
-          lastAx, lastAy, lastAz, lastGx, lastGy, lastGz, lastMx, lastMy, lastMz, lastTmp);
-    Serial2.println(String(resultStr));
-
-    if(start_log){
-      String _glb_t = (timeStatus() == timeNotSet)? "N/A" : getCurrentHmsTime();
-      String _lca_t = String((millis() - startRecordLT)/1000.0f, 2);
-      if(mysd.checkFileStatus()){
-        mysd.record(_glb_t + " " + _lca_t + " " + String(resultStr));
-      }
-      Serial2.println(String(resultStr));
-      LED_TOGGLE();
-    }
-
-    // Serial.println(resultStr);
-
-    if(start_wifi_broadcast && WiFi.status() == WL_CONNECTED){
-      udp.beginPacket(udpAddress.c_str(), udpPort);
-      udp.print(resultStr);
-      udp.endPacket();
-    }
+  if(millis() - lastDataUpdate > 203) {
+    lastDataUpdate = millis();
+    sendData();
   }
 
-  if(millis() - lastSensorSlowUpdate > 100) {
+  if(millis() - lastSensorSlowUpdate > 97) {
     lastSensorSlowUpdate = millis();
     float _mx, _my, _mz;
-    mysensor.readMagnetRaw(_mx, _my, _mz);
-    lastMx = _mx; lastMy = -_my; lastMz = -_mz;
-    mysensor.readTemperatureRaw(lastTmp);
+    mySensor.readMagnetRaw(_mx, _my, _mz);
+    myData.lastMx = _mx; myData.lastMy = -_my; myData.lastMz = -_mz;
+    mySensor.readTemperatureRaw(myData.lastTmp);
   }
 
-  uint32_t _dt = millis() - lastSensorFastUpdate;
-  if(_dt > 50) {
+  if(millis() - lastSensorFastUpdate > 51) {
     lastSensorFastUpdate = millis();
     float _ax, _ay, _az, _gx, _gy, _gz;
-    mysensor.readAccelerationRaw(_ax, _ay, _az);
-    lastAx = _ax; lastAy = -_ay; lastAz = -_az - 9.81f;
-    mysensor.readGyroRaw(_gx, _gy, _gz);
-    lastGx = _gx; lastGy = -_gy; lastGz = -_gz;
+    mySensor.readAccelerationRaw(_ax, _ay, _az);
+    myData.lastAx = _ax; myData.lastAy = -_ay; myData.lastAz = -_az;
+    mySensor.readGyroRaw(_gx, _gy, _gz);
+    myData.lastGx = _gx; myData.lastGy = -_gy; myData.lastGz = -_gz;
   }
 }
 
-void Process_Command(String command) {
+void parse_serial_cmd(String command) {
   command.trim();
-  if (command == "Start_rcd") {
+  if (command == "Start_Record") {
     start_log = true;
     startRecordLT = millis();
-    Serial.println("Data recording started.");
+    Serial.println("SD data recording started.");
   }
-  else if (command == "Stop_rcd") {
+  else if (command == "Stop_Record") {
+    if(start_log){
+      startRecordLT = millis();
+      mySd.flushToCard();
+    }
     start_log = false;
-    Serial.println("Data recording stopped.");
-    digitalWrite(LED_PIN, HIGH);
+    Serial.println("SD data recording stopped.");
   }
-  else if (command == "Create_f"){
-    String data_headline = "global_t local_t acc_x acc_y acc_z omega_x omega_y omega_z mag_x mag_y mag_z temp";
-    int file_flag;
-    if(timeStatus() != timeNotSet){
-      mysd.set_folder_name(getCurrentDate());
-      file_flag = mysd.create_file(data_headline, "MTest_"+getCurrentHmsTime());
+  else if (command == "Clear_Log_Files"){
+    mySd.clearLogs("/");
+    Serial.println("SD card cleared.");
+  }
+  else if (command == "Start_UDP_Broadcast"){
+    start_wifi_broadcast = true;
+    Serial.println("Data broadcasting started.");
+  }
+  else if (command == "Stop_UDP_Broadcast"){
+    start_wifi_broadcast = false;
+    Serial.println("Data broadcasting stopped.");
+  }
+  else if (command == "Start_Echo"){
+    start_serial_echo = true;
+    Serial.println("Serial data echo started.");
+  }
+  else if (command == "Stop_Echo"){
+    start_serial_echo = false;
+    Serial.println("Serial data echo stopped.");
+  }
+  else if (command == "Reset_Folder_Name"){
+    if (timeStatus() != timeNotSet) {
+      char timeStr[12];
+      sprintf(timeStr, "%04d-%02d-%02d", year(), month(), day());
+      mySd.setFolderName(String(timeStr));
+      Serial.println("SD folder name reset to date.");
     }
-    else{
-      file_flag = mysd.create_file(data_headline);
-    }
-    if(file_flag < 0){
-      Serial.println("SD file creation failed.");
-    }
-    else{
-      Serial.println("SD file creation succeeded.");
+    else {
+      Serial.println("SD folder name reset unsuccessful.");
     }
   }
-  else if (command.startsWith("T:")) {
-    String valueStr = command.substring(2);
-    unsigned long time_interger = valueStr.toInt();
-    if(time_interger >= DEFAULT_TIME){
-      setTime(time_interger);
-      Serial.println("Global time updated.");
-      Serial2.println("T_ack");
+  else if (command == "Reset_File_Name"){
+    if (timeStatus() != timeNotSet) {
+      char timeStr[10];
+      sprintf(timeStr, "%02d:%02d:%02d", hour(), minute(), second());
+      mySd.setFileName(String(timeStr));
+      Serial.println("SD file name reset to time (H:M:S).");
+    }
+    else {
+      Serial.println("SD file name reset unsuccessful.");
     }
   }
-  else if (command == "Get_ip") {
+  else if (command == "Get_IP") {
     if(WiFi.status() == WL_CONNECTED){
-      WiFi.begin(wifi_ssid, wifi_pswd);
-      udp.begin(0);
-      Serial.println("WiFi not connected, retrying.");
-      Serial2.println("IP:N/A");
+      Serial.println(WiFi.localIP());
     }
-    else{
-      Serial2.print("IP:");
-      Serial2.println(WiFi.localIP());
+    else {
+      Serial.println("WiFi not connected.");
     }
   }
-  else if (command.startsWith("IP:")) {  // set udp target IP address
-    String valueStr = command.substring(3);
+  else if (command == "Connect_WiFi") {
+    if(WiFi.status() != WL_CONNECTED){
+      WiFi.begin(wifi_ssid, wifi_pswd);
+    }
+  }
+  else if (command.startsWith("UDP_IP:")) {  // set udp target IP address
+    String valueStr = command.substring(7);
     if(isValidIP(valueStr)){
       udpAddress = valueStr;
-      myscreen.set_Checkbox(false);
-      Serial.println("UDP target IP updated: " + valueStr);
-      Serial2.println("IP_ack");
+      Serial.println("UDP target IP updated to: " + valueStr);
     }
   }
-  else if (command.startsWith("P:")) {  // set udp target port number
-    String valueStr = command.substring(2);
+  else if (command.startsWith("UDP_Port:")) {  // set udp target port number
+    String valueStr = command.substring(9);
     int port_interger = valueStr.toInt();
     if(port_interger >= 1024){
       udpPort = port_interger;
-      myscreen.set_Checkbox(false);
       Serial.println("UDP target port updated: " + valueStr);
-      Serial2.println("P_ack");
     }
   }
-  else if (command == "Start_brd") {
-    start_wifi_broadcast = true;
-    myscreen.set_Checkbox(true);
-    Serial.println("Data broadcasting started.");
-  }
-  else if (command == "Stop_brd") {
-    start_wifi_broadcast = false;
-    myscreen.set_Checkbox(false);
-    Serial.println("Data broadcasting stopped.");
+  else if (command.startsWith("Time:")) {
+    String valueStr = command.substring(5);
+    unsigned long time_interger = valueStr.toInt();
+    if (time_interger > DEFAULT_TIME) {
+      setTime(time_interger);
+    }
   }
   else if (command.length() > 0) {
-    Serial.print("Unknown command: ");
-    Serial.println(command);
+    Serial.println("Unknown command: " + command);
   }
 }
