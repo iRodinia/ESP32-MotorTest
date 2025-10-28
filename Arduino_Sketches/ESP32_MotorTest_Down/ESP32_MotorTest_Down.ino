@@ -158,8 +158,9 @@ void loop(){
   if (millis() - lastDataLoopT > 100) {
     lastDataLoopT = millis();
     char resultStr[200];
-    sprintf(resultStr, "%.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f %.3f",
+    sprintf(resultStr, "%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f",
           lastAx, lastAy, lastAz, lastGx, lastGy, lastGz, lastMx, lastMy, lastMz, lastTmp);
+    Serial2.println(String(resultStr));
 
     if(start_log){
       String _glb_t = (timeStatus() == timeNotSet)? "N/A" : getCurrentHmsTime();
