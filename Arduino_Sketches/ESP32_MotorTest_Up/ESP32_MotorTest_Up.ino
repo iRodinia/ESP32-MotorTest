@@ -18,8 +18,7 @@ const char* ssid = "BioInBot_Lab";
 const char* password = "11223344";
 String udpAddress = "192.168.1.100";  // target udp ip address
 int udpPort = 12345;  // target udp port
-hw_timer_t *timer1 = NULL;  // record the data
-hw_timer_t *timer2 = NULL;  // refresh the OLED
+hw_timer_t *timer = NULL;  // refresh the OLED
 
 MCU_Up_Data myData;
 bool start_log = false;  // data sending status
@@ -28,6 +27,7 @@ bool start_serial_echo = false;  // print data on Serial 1
 uint32_t start_record_lt = 0;  // start recording local time ms
 uint32_t DEFAULT_TIME = 1357041600;  // Jan 1 2013
 uint32_t screen_fresh_cnt = 0;
+uint32_t lastDataUpdate = 0;
 uint32_t lastSensorFastUpdate = 0;
 uint32_t lastSensorSlowUpdate = 0;
 String log_headline = "GlobalTime,LocalTime,EscCurrent,EscVoltage,EscPower,EscTemperature,Command,MotorRpm,MotorForce,AccelerationX,AccelerationY,AccelerationZ,GyroscopeX,GyroscopeY,GyroscopeZ,MagnetX,MagnetY,MagnetZ";
@@ -59,33 +59,7 @@ void wifi_init() {
 }
 
 /* Callback function */
-void onTimer1() {
-  sprintf(myData.glbT, "%02d:%02d:%02d", hour(), minute(), second());
-  myData.lcaT = (millis() - start_record_lt) / 1000.0f;
-  char resultStr[300];
-  convert_data_to_string(myData, resultStr);
-  if (start_log) {
-    mySd.logMessage(resultStr);
-  }
-  if (start_serial_echo) {
-    Serial.println(resultStr);
-  }
-  if (start_wifi_broadcast) {
-    if (WiFi.status() == WL_CONNECTED){
-      String jsonStr;
-      convert_data_to_json(myData, jsonStr);
-      udp.beginPacket(udpAddress.c_str(), udpPort);
-      udp.print(jsonStr);
-      udp.endPacket();
-    }
-    else{
-      Serial.println("WiFi connection lost! Retry to connect.");
-      WiFi.begin(ssid, password);
-    }
-  }
-}
-
-void onTimer2() {
+void onTimer() {
   if (screen_fresh_cnt < 800) {
     myScreen.set_Line1("T:" + myClock.getCurrentTime());
     myScreen.set_Line2("cur:"+String(myData.lastCur,2)+","+"vol:"+String(myData.lastVol,2));
@@ -130,6 +104,32 @@ void onSerialCmdEvent() {
   }
 }
 
+void sendData() {
+  sprintf(myData.glbT, "%02d:%02d:%02d", hour(), minute(), second());
+  myData.lcaT = (millis() - start_record_lt) / 1000.0f;
+  char resultStr[300];
+  convert_data_to_string(myData, resultStr);
+  if (start_log) {
+    mySd.logMessage(resultStr);
+  }
+  if (start_serial_echo) {
+    Serial.println(resultStr);
+  }
+  if (start_wifi_broadcast) {
+    if (WiFi.status() == WL_CONNECTED){
+      String jsonStr;
+      convert_data_to_json(myData, jsonStr);
+      udp.beginPacket(udpAddress.c_str(), udpPort);
+      udp.print(jsonStr);
+      udp.endPacket();
+    }
+    else{
+      Serial.println("WiFi connection lost! Retry to connect.");
+      WiFi.begin(ssid, password);
+    }
+  }
+}
+
 
 void setup() {
   Serial.begin(115200);
@@ -163,23 +163,13 @@ void setup() {
   mySd.setHeadLine(log_headline);
   delay(50);
 
-  timer1 = timerBegin(1000000);
-  if(timer1 == NULL) {
-    Serial.println("Data broadcasting timer initialization failed!");
-    while(1);
-  }
-  timerAlarm(timer1, 300007, true, 0);
-  timerAttachInterrupt(timer1, &onTimer1);
-  Serial.println("Data broadcasting timer initialized.");
-  delay(50);
-
-  timer2 = timerBegin(1000000);
-  if(timer2 == NULL) {
+  timer = timerBegin(1000000);
+  if(timer == NULL) {
     Serial.println("OLED Timer initialization failed!");
     while(1);
   }
-  timerAlarm(timer2, 400000, true, 0);
-  timerAttachInterrupt(timer2, &onTimer2);
+  timerAlarm(timer, 400000, true, 0);
+  timerAttachInterrupt(timer, &onTimer);
   Serial.println("Screen timer initialized.");
   delay(50);
 
@@ -207,7 +197,12 @@ void setup() {
 void loop() {
   onSerialCmdEvent();
 
-  if(millis() - lastSensorSlowUpdate > 203) {
+  if(millis() - lastDataUpdate > 501) {
+    lastDataUpdate = millis();
+    sendData();
+  }
+
+  if(millis() - lastSensorSlowUpdate > 151) {
     lastSensorSlowUpdate = millis();
     myADC.readPower(myData.lastVol, myData.lastCur, myData.lastPwr);
     myADC.readForce(myData.lastThr);

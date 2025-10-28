@@ -8,6 +8,9 @@
 
 #include "helper_functions_up.h"
 
+#define MAX_LINE_NUM 300
+#define MAX_LINE_LEN 250
+
 #define LED_PIN 2  // LED blink means data recording, LED on means flushing to SD card
 #define LED_TOGGLE() digitalWrite(LED_PIN, digitalRead(LED_PIN) ^ 1)
 
@@ -20,7 +23,6 @@
 class SDCard {
 public:
   SDCard(uint8_t sck=18, uint8_t miso=19, uint8_t mosi=23, uint8_t cs=5);
-  ~SDCard();
   String init();
   bool cardReady();
   bool checkFileStatus();
@@ -33,8 +35,6 @@ public:
   int clearLogs(String folder_path = "/default_folder");
 
 private:
-  const uint32_t MAX_LINE_NUM = 900;
-  const uint32_t MAX_LINE_LEN = 250;
   const uint64_t MIN_FREE_SPACE = 2 * 1024 * 1024;  // byte
   uint8_t _sck, _miso, _mosi, _cs;
   bool _card_mounted = false;
@@ -43,7 +43,7 @@ private:
   String _file_name = "default_log";
   String _head_line = "";
 
-  char* _log_buffer;
+  char _log_buffer[MAX_LINE_NUM * MAX_LINE_LEN];
   unsigned long _log_current_pos;
 };
 
@@ -57,17 +57,7 @@ SDCard::SDCard(uint8_t sck, uint8_t miso, uint8_t mosi, uint8_t cs){
   _file_created = false;
 }
 
-SDCard::~SDCard() {
-  if(_log_buffer){
-    free(_log_buffer);
-  }
-}
-
 String SDCard::init(){
-  _log_buffer = (char*)malloc(MAX_LINE_NUM * MAX_LINE_LEN);
-  if (!_log_buffer) {
-    return "SD card buffer allocation failed!";
-  }
   _log_current_pos = 0;
 
   SPI.begin(_sck, _miso, _mosi, _cs);
