@@ -9,9 +9,9 @@
 #include "12864_display.h"
 #include "SD_manager.h"
 #include "Time_manager.h"
-
 #include "Esc_Telemetry.h"
 #include "Pwm_reader.h"
+#include "My_ads1115_sensor.h"
 #include "helper_functions_up.h"
 
 const char* ssid = "BioInBot_Lab";
@@ -24,23 +24,38 @@ hw_timer_t *timer2 = NULL;  // refresh the OLED
 MCU_Up_Data myData;
 bool start_log = false;  // data sending status
 bool start_wifi_broadcast = false;  // wifi data sending status
+bool start_serial_echo = false;  // print data on Serial 1
 uint32_t start_record_lt = 0;  // start recording local time ms
 uint32_t DEFAULT_TIME = 1357041600;  // Jan 1 2013
 uint32_t screen_fresh_cnt = 0;
 uint32_t lastSensorFastUpdate = 0;
 uint32_t lastSensorSlowUpdate = 0;
 String log_headline = "GlobalTime,LocalTime,EscCurrent,EscVoltage,EscPower,EscTemperature,Command,MotorRpm,MotorForce,AccelerationX,AccelerationY,AccelerationZ,GyroscopeX,GyroscopeY,GyroscopeZ,MagnetX,MagnetY,MagnetZ";
-String mcu_down_data = "";
-bool cmd_received = false;
+float mcu_down_temperature = 0;
+
+char serial_cmd[64];
+uint8_t serial_cmd_index = 0;
 
 WiFiUDP udp;
 MyDisplay myScreen;
 SDCard mySd;
 MyTimer myClock;
-MyForceSensor myGauge;
-MyPowerMonitor myMonitor;
+MyADS1115Sensor myADC;
 MyEscTelemetry myEsc;
 MyPwmReader myReceiver;
+
+void wifi_init() {
+  Serial.print("Connecting to WiFi: ");
+  Serial.println(ssid);
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(50);
+    Serial.print(".");
+  }
+  Serial.println("\nWiFi connected!");
+  Serial.print("Local IP: ");
+  Serial.println(WiFi.localIP());
+}
 
 void onTimer1() {
   sprintf(myData.glbT, "%02d:%02d:%02d", hour(), minute(), second());
@@ -49,6 +64,9 @@ void onTimer1() {
   convert_data_to_string(myData, resultStr);
   if (start_log) {
     mySd.logMessage(resultStr);
+  }
+  if (start_serial_echo) {
+    Serial.println(resultStr);
   }
   if (start_wifi_broadcast) {
     if (WiFi.status() == WL_CONNECTED){
@@ -82,92 +100,65 @@ void onTimer2() {
   }
 }
 
-void wifi_init() {
-  Serial.print("Connecting to WiFi: ");
-  Serial.println(ssid);
-  WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(50);
-    Serial.print(".");
-  }
-  Serial.println("\nWiFi connected!");
-  Serial.print("Local IP: ");
-  Serial.println(WiFi.localIP());
-}
-
-void Serial2Event() {
-  while (Serial2.available()) {
-    char inChar = (char)Serial2.read();
-    mcu_down_data += inChar;
+void onSerialCmdEvent() {
+  while (Serial.available()) {
+    char inChar = (char)Serial.read();
+    if (serial_cmd_index >= 63) {
+      serial_cmd_index = 0;
+      serial_cmd[0] = '\0';
+      continue;
+    }
+    if (inChar == " "){
+      continue;
+    }
+    serial_cmd[serial_cmd_index] = inChar;
+    serial_cmd_index;
     if (inChar == '\n') {
-      cmd_received = true;
+      serial_cmd[serial_cmd_index] = '\0';
+      parse_serial_cmd(String(serial_cmd));
+      serial_cmd_index = 0;
+      serial_cmd[0] = '\0';
     }
   }
 }
-
-
-
-
-
 
 void setup() {
   Serial.begin(115200);
   delay(500);
   Serial.println("\n===== ESP32 Motor Test MCU (Up) Initializing =====");
 
-  
-
   Serial2.begin(115200);  // Rx-16, Tx-17
   while(!Serial2)
     delay(10);
 
   Serial.println("Initializing submodules...");
+  String init_message = "";
   wifi_init();
-  myScreen.init();
-  Serial.println("OLED inited.");
-  while(!myClock.getStatus()){
-    myClock.init(udp);
-    delay(50);
-  }
-  Serial.println("Time manager inited.");
-  while(!mySd.checkCardStatus()){
-    mySd.init();
-    delay(50);
-  }
-  Serial.println("SD card inited.");
-  myGauge.init();
-  Serial.println("Force gauge inited.");
-  while(!myMonitor.isInitialized()){
-    myMonitor.init();
-    delay(50);
-  }
-  Serial.println("Power monitor inited.");
-  myEsc.begin();
-  Serial.println("ESC telemetry inited.");
+  init_message += myScreen.init();
+  init_message += mySd.init();
+  init_message += myClock.init();
+  init_message += myADC.init();
+  init_message += myEsc.init();
   myReceiver.begin();
-  Serial.println("PWM monitor inited.");
-  
-  Serial.println("===== System initialization done. =====\n");
-
-  myGauge.calibrate();
-
-  int retryNum = 0;
-  mySd.set_folder_name(myClock.getCurrentDate());
-  while(mySd.create_file(log_headline, myClock.getCurrentDateTime()) < 0 && retryNum < 10){
-    retryNum++;
-    delay(100);
+  if(init_message.length() < 1){
+    Serial.println("Submodules initialized.");
   }
-  if(!mySd.checkFileStatus()){
-    Serial.println("SD file creation failed. Abort.");
+  else{
+    Serial.println(init_message);
     while(1);
   }
+
+  mySd.set_folder_name(myClock.getCurrentDate());
+  mySd.setFileName(myClock.getCurrentTime());
+  mySd.setHeadLine(log_headline);
+  delay(50);
 
   timer1 = timerBegin(1000000);
   if(timer1 == NULL) {
     Serial.println("Data broadcasting timer initialization failed!");
     while(1);
   }
-  timerAlarm(timer1, 300000, true, 0);
+  timerAlarm(timer1, 300007, true, 0);
   timerAttachInterrupt(timer1, &onTimer1);
   Serial.println("Data broadcasting timer initialized.");
   delay(50);
@@ -177,46 +168,41 @@ void setup() {
     Serial.println("OLED Timer initialization failed!");
     while(1);
   }
-  timerAlarm(timer2, 300000, true, 0);
+  timerAlarm(timer2, 400000, true, 0);
   timerAttachInterrupt(timer2, &onTimer2);
   Serial.println("Screen timer initialized.");
   delay(50);
 
+  Serial.println("===== System Initialization Done. =====\n");
 
+  Serial.println("Wait for MCU (down) startup.");
+  while(!Serial2.available()) delay(50);
   unsigned long time_now = now();
   Serial2.println("T:"+String(time_now));
-
-
-
-
-
-  LED_TOGGLE();
+  Serial.println("MCU (down) connected.");
   delay(50);
-  
+
+  flush_serial2_buffer();
 }
 
 void loop() {
-  if (Serial2.available()) {
-    Serial2Event();
-  }
-  if(cmd_received){
-    String _command = mcu_down_data;
-    mcu_down_data = "";
-    cmd_received = false;
-    // Process_Command(_command);
-  }
+  onSerialCmdEvent();
 
-  if(millis() - lastSensorSlowUpdate > 97) {
+  if(millis() - lastSensorSlowUpdate > 203) {
     lastSensorSlowUpdate = millis();
-    float _volt, _curr, _force;
-    myMonitor.readPower(_volt, _curr);
-    myData.lastVol = _volt;
-    myData.lastCur = _curr;
-    myData.lastPwr = _volt * _curr;
-    myGauge.getForceCalibrated(myData.lastThr);
+    myADC.readPower(myData.lastVol, myData.lastCur, myData.lastPwr);
+    myADC.readForce(myData.lastThr);
+
+    float _tmp_ax, _tmp_ay, _tmp_az, _tmp_gx, _tmp_gy, _tmp_gz, _tmp_mx, _tmp_my, _tmp_mz, _temperature;
+    if(read_serial2_data(_tmp_ax, _tmp_ay, _tmp_az, _tmp_gx, _tmp_gy, _tmp_gz, _tmp_mx, _tmp_my, _tmp_mz, _temperature)) {
+      myData.lastAx = _tmp_ax; myData.lastAy = _tmp_ay; myData.lastAz = _tmp_az;
+      myData.lastGx = _tmp_gx; myData.lastGy = _tmp_gy; myData.lastGz = _tmp_gz;
+      myData.lastMx = _tmp_mx; myData.lastMy = _tmp_my; myData.lastMz = _tmp_mz;
+      mcu_down_temperature = _temperature;
+    }
   }
 
-  if(millis() - lastSensorFastUpdate > 47) {
+  if(millis() - lastSensorFastUpdate > 97) {
     lastSensorFastUpdate = millis();
     myEsc.update();
     if(myEsc.isValid()){
@@ -227,4 +213,8 @@ void loop() {
       myData.lastCmd = myReceiver.getThrottle();
     }
   }
+}
+
+void parse_serial_cmd(String cmd) {
+
 }

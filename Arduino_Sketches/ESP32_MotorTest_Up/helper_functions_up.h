@@ -46,4 +46,88 @@ void convert_data_to_json(MCU_Up_Data data, String& resultStr) {
 }
 
 
+char serial2Buffer[256];
+uint16_t serial2BufferIndex = 0;
+unsigned long serial2LastReceiveTime = 0;
+
+bool read_serial2_data(float &ax, float &ay, float &az, float &gx, float &gy, float &gz, float &mx, float &my, float &mz, float &temp) {
+  if (Serial2.available() <= 0) {
+    if (serial2BufferIndex > 0 && (millis() - serial2LastReceiveTime > 800)) {
+      serial2BufferIndex = 0;
+      serial2Buffer[0] = '\0';
+    }
+    return false;
+  }
+
+  while (Serial2.available() > 0) {
+    char c = Serial2.read();
+    serial2LastReceiveTime = millis();
+
+    if (serial2BufferIndex >= 255) {
+      serial2BufferIndex = 0;
+      serial2Buffer[0] = '\0';
+      continue;
+    }
+    
+    serial2Buffer[serial2BufferIndex] = c;
+    serial2BufferIndex++;
+    if (c == '\n') {
+      serial2Buffer[serial2BufferIndex] = '\0';
+      int parsedCount = sscanf(serial2Buffer, 
+        "%f,%f,%f,%f,%f,%f,%f,%f,%f,%f",
+        &ax, &ay, &az,
+        &gx, &gy, &gz,
+        &mx, &my, &mz,
+        &temp
+      );
+      if (parsedCount == 10) {
+        serial2BufferIndex = 0;
+        serial2Buffer[0] = '\0';
+        return true;
+      }
+      else {
+        serial2BufferIndex = 0;
+        serial2Buffer[0] = '\0';
+      }
+    }
+  }
+  return false;
+}
+
+void flush_serial2_buffer() {
+    while (Serial2.available() > 0) {
+        Serial2.read();
+    }
+    serial2BufferIndex = 0;
+    serial2Buffer[0] = '\0';
+}
+
+bool isValidIP(String ip) {
+  int dots = 0;
+  int num = 0;
+  int segment[4] = {0};
+  for (int i = 0; i < ip.length(); i++) {
+    char c = ip[i];
+    if (c == '.') {
+      if (dots > 3) return false;
+      segment[dots] = num;
+      num = 0;
+      dots++;
+    } 
+    else if (isdigit(c)) {
+      num = num * 10 + (c - '0');
+      if (num > 255) return false;
+    } 
+    else {
+      return false;
+    }
+  }
+  segment[dots] = num;
+  if (dots != 3) return false;
+  for (int i = 0; i < 4; i++) {
+    if (segment[i] < 0 || segment[i] > 255) return false;
+  }
+  return true;
+}
+
 #endif

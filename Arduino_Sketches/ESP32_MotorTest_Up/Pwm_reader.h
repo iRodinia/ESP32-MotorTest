@@ -50,14 +50,11 @@ public:
     float getThrottle() {
         const float PWM_MIN = 988.0;   // 最小PWM值
         const float PWM_MAX = 2012.0;  // 最大PWM值
-        
-        // 限制脉冲宽度在有效范围内
+
         float pw = constrain(pulseWidth, PWM_MIN, PWM_MAX);
-        
-        // 映射到0-1范围
         float throttle = (pw - PWM_MIN) / (PWM_MAX - PWM_MIN);
         
-        return constrain(throttle, 0.0, 1.0);
+        return throttle;
     }
 
     bool hasNewData() {

@@ -72,7 +72,7 @@ Overview of the ESP32-Wroom-DA module:
   2. **NTPClient** by Fabrice Weinberg; **Time** by Michael Margolis;
   3. **Adafruit ADXL345** by Adafruit; **Adafruit HMC5883 Unified** by Adafruit; **Grove 3-Axis Digital Gyro** by Seeed Studio;
   4. **EspSoftwareSerial** by Dirk Kaar and Peter Lerup;
-  5. **Adafruit ADS1X15** bu adafruit; 
+  5. **Adafruit ADS1X15** bu adafruit;
   6. **ArduinoJson** by Benoit Blanchon
 
 - Arduino IDE Settings

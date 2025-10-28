@@ -120,21 +120,24 @@ public:
     }
   }
 
-  void begin(int8_t rxPin = 26, int8_t txPin = -1, long baudRate = 115200) {
-    _serial = new SoftwareSerial(rxPin, txPin);
-    _serial->begin(baudRate);
-    Serial.print("ESC serial initializing.");
-    while(!_serial){
-      Serial.print(".");
+  String init(int8_t rxPin = 26, int8_t txPin = -1, long baudRate = 115200) {
+    uint8_t initNum = 0;
+    while(!_serial && initNum < 10){
+      _serial = new SoftwareSerial(rxPin, txPin);
+      _serial->begin(baudRate);
+      initNum++;
       delay(50);
     }
-    Serial.printf("\n");
+    if(initNum >= 10){
+      return "ESC telemetry initialization failed.";
+    }
     
     resetFrame();
     memset(&_data, 0, sizeof(EscTelemetryData));
     memset(&_stats, 0, sizeof(TelemetryStats));
     _stats.lastStatsReset = millis();
     _lastUpdateTime = millis();
+    return "";
   }
   
   void setTimeout(unsigned long timeout) {
