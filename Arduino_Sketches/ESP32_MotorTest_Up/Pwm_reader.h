@@ -11,13 +11,13 @@ private:
     volatile bool newData;
     
     static MyPwmReader* instance;
-    static void IRAM_ATTR handleInterrupt() {
+    static void handleInterrupt() {
         if (instance) {
             instance->handlePulse();
         }
     }
 
-    void IRAM_ATTR handlePulse() {
+    void handlePulse() {
         unsigned long currentTime = micros();
         
         if (digitalRead(pin) == HIGH) {

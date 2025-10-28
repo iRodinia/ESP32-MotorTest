@@ -44,6 +44,7 @@ MyADS1115Sensor myADC;
 MyEscTelemetry myEsc;
 MyPwmReader myReceiver;
 
+/* Setup function */
 void wifi_init() {
   Serial.print("Connecting to WiFi: ");
   Serial.println(ssid);
@@ -57,6 +58,7 @@ void wifi_init() {
   Serial.println(WiFi.localIP());
 }
 
+/* Callback function */
 void onTimer1() {
   sprintf(myData.glbT, "%02d:%02d:%02d", hour(), minute(), second());
   myData.lcaT = (millis() - start_record_lt) / 1000.0f;
@@ -90,6 +92,12 @@ void onTimer2() {
     myScreen.set_Line3("pwr:"+String(myData.lastPwr,2)+","+"thr:"+String(myData.lastThr,2));
     myScreen.set_Line4("rpm:"+String(myData.lastRpm,2)+","+"cmd:"+String(myData.lastCmd,2));
     myScreen.set_Line5("ESCtmp:"+String(myData.lastEscTmp,2));
+    if (start_wifi_broadcast) {
+      myScreen.set_Checkbox(true);
+    }
+    else {
+      myScreen.set_Checkbox(false);
+    }
     myScreen.OLED_UpdateRam();
     myScreen.OLED_Refresh();
     screen_fresh_cnt++;
@@ -108,7 +116,7 @@ void onSerialCmdEvent() {
       serial_cmd[0] = '\0';
       continue;
     }
-    if (inChar == " "){
+    if (inChar == ' '){
       continue;
     }
     serial_cmd[serial_cmd_index] = inChar;
@@ -121,6 +129,7 @@ void onSerialCmdEvent() {
     }
   }
 }
+
 
 void setup() {
   Serial.begin(115200);
@@ -136,19 +145,20 @@ void setup() {
   wifi_init();
   init_message += myScreen.init();
   init_message += mySd.init();
-  init_message += myClock.init();
+  init_message += myClock.init(udp);
   init_message += myADC.init();
   init_message += myEsc.init();
   myReceiver.begin();
-  if(init_message.length() < 1){
+  if(init_message.length() < 2){
     Serial.println("Submodules initialized.");
   }
   else{
     Serial.println(init_message);
+    Serial.println("Abort.");
     while(1);
   }
 
-  mySd.set_folder_name(myClock.getCurrentDate());
+  mySd.setFolderName(myClock.getCurrentDate());
   mySd.setFileName(myClock.getCurrentTime());
   mySd.setHeadLine(log_headline);
   delay(50);
@@ -215,6 +225,76 @@ void loop() {
   }
 }
 
-void parse_serial_cmd(String cmd) {
 
+void parse_serial_cmd(String command) {
+  command.trim();
+  if (command == "Start_Record") {
+    start_log = true;
+    start_record_lt = millis();
+    Serial.println("SD data recording started.");
+  }
+  else if (command == "Stop_Record") {
+    if(start_log){
+      mySd.flushToCard();
+    }
+    start_log = false;
+    Serial.println("SD data recording stopped.");
+  }
+  else if (command == "Clear_Log_Files"){
+    mySd.clearLogs("/");
+    Serial.println("SD card cleared.");
+  }
+  else if (command == "Start_UDP_Broadcast"){
+    start_wifi_broadcast = true;
+    Serial.println("Data broadcasting started.");
+  }
+  else if (command == "Stop_UDP_Broadcast"){
+    start_wifi_broadcast = false;
+    Serial.println("Data broadcasting stopped.");
+  }
+  else if (command == "Start_Echo"){
+    start_serial_echo = true;
+    Serial.println("Serial data echo started.");
+  }
+  else if (command == "Stop_Echo"){
+    start_serial_echo = false;
+    Serial.println("Serial data echo stopped.");
+  }
+  else if (command == "Get_IP") {
+    if(WiFi.status() == WL_CONNECTED){
+      Serial.println(WiFi.localIP());
+    }
+    else {
+      Serial.println("WiFi not connected.");
+    }
+  }
+  else if (command.startsWith("UDP_IP:")) {  // set udp target IP address
+    String valueStr = command.substring(7);
+    if(isValidIP(valueStr)){
+      udpAddress = valueStr;
+      Serial.println("UDP target IP updated: " + valueStr);
+    }
+  }
+  else if (command.startsWith("UDP_Port:")) {  // set udp target port number
+    String valueStr = command.substring(9);
+    int port_interger = valueStr.toInt();
+    if(port_interger >= 1024){
+      udpPort = port_interger;
+      Serial.println("UDP target port updated: " + valueStr);
+    }
+  }
+  else if (command == "H") {
+    Serial.println("Supported command:");
+    Serial.println("1. Start_Record  /  Stop_Record");
+    Serial.println("2. Clear_Log_Files");
+    Serial.println("3. Start_UDP_Broadcast  /  Stop_UDP_Broadcast");
+    Serial.println("4. Get_IP");
+    Serial.println("5. UDP_IP:192.168.31.109");
+    Serial.println("6. UDP_Port:1234");
+    Serial.println("7. Start_Echo  /  Stop_Echo");
+  }
+  else if (command.length() > 0) {
+    Serial.println("Unknown command: " + command);
+    Serial.println("Type H to get supported commands.");
+  }
 }

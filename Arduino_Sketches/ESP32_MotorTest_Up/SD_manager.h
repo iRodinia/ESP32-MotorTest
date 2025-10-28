@@ -33,8 +33,8 @@ public:
   int clearLogs(String folder_path = "/default_folder");
 
 private:
-  const uint32_t MAX_LINE_NUM = 1000;
-  const uint32_t MAX_LINE_LEN = 280;
+  const uint32_t MAX_LINE_NUM = 900;
+  const uint32_t MAX_LINE_LEN = 250;
   const uint64_t MIN_FREE_SPACE = 2 * 1024 * 1024;  // byte
   uint8_t _sck, _miso, _mosi, _cs;
   bool _card_mounted = false;
@@ -113,7 +113,7 @@ int SDCard::setFileName(String file_name){
   return -1;
 }
 
-int SDCard::setHeadLine(String head_line = ""){
+int SDCard::setHeadLine(String head_line){
   if(head_line.length() > 0){
     _head_line = head_line;
   }
@@ -137,10 +137,10 @@ int SDCard::flushToCard(){
     return -1;
   }
 
-  String _file_path = "/" + _folder_name + "/" + file_name + ".txt";
+  String _file_path = "/" + _folder_name + "/" + _file_name + ".txt";
   while(SD.exists(_file_path.c_str())){
-    file_name += "+";
-    _file_path = "/" + _folder_name + "/" + file_name + ".txt";
+    _file_name += "+";
+    _file_path = "/" + _folder_name + "/" + _file_name + ".txt";
   }
 
   digitalWrite(LED_PIN, HIGH);
