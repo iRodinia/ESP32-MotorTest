@@ -94,7 +94,7 @@ void onSerialCmdEvent() {
       continue;
     }
     serial_cmd[serial_cmd_index] = inChar;
-    serial_cmd_index;
+    serial_cmd_index++;
     if (inChar == '\n') {
       serial_cmd[serial_cmd_index] = '\0';
       parse_serial_cmd(String(serial_cmd));
