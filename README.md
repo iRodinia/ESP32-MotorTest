@@ -54,26 +54,24 @@ Overview of the ESP32-Wroom-DA module:
   1. **SD Card Reader**: CS-5, SCK-18, MOSI-19, MISO-23
   2. **OLED Screen**: SCL-33, SDA-32
   3. **GY-85 IMU**: SCL-22, SDA-21
-  4. **Serial 2**: Rx-16, Tx-17, to MCU up
+  4. **Serial 2**: Rx-4, Tx-25
 
 - Devices Connection (Up)
 
   1. **SD Card Reader**: CS-5, SCK-18, MOSI-23, MISO-19
-  2. **AD7705 ADC**: CS-15, SCK-14, MISO(to DOUT)-12, MOSI(to DIN)-13, use port AIN1+ & AIN1- to measure force gauge reading (in bipolar mode)
-  3. **ADS1115 ADC**: SCL-22, SDA-21, use port A0 to measure power module voltage reading, A1 to measure current reading (in unipolar mode)
-  4. **OLED Screen**: SCL-33, SDA-32
-  5. **Serial 2**: Rx-16, Tx-17, to MCU down
-  6. **ESC Telemetry**: Tx (of ESC)-26, use as software serial Rx
-  7. **X8R Receiver PWM**: pwm-27, use as input
+  2. **ADS1115 ADC**: SCL-22, SDA-21, use port A0 to measure power module voltage reading, A1 to measure current reading (in unipolar mode), A2-A3 to measure force (in bipolar mode), A2+/A3-
+  3. **OLED Screen**: SCL-33, SDA-32
+  4. **Serial 2**: Rx-4, Tx-25
+  5. **ESC Telemetry**: Tx (of ESC)-26, also the Serial1 Rx pin of MCU
+  6. **X8R Receiver PWM**: pwm-27, use as input
 
 - Arduino Libraries Needed
   
   1. **SD** by Arduino;
   2. **NTPClient** by Fabrice Weinberg; **Time** by Michael Margolis;
   3. **Adafruit ADXL345** by Adafruit; **Adafruit HMC5883 Unified** by Adafruit; **Grove 3-Axis Digital Gyro** by Seeed Studio;
-  4. **EspSoftwareSerial** by Dirk Kaar and Peter Lerup;
-  5. **Adafruit ADS1X15** bu adafruit;
-  6. **ArduinoJson** by Benoit Blanchon
+  4. **Adafruit ADS1X15** bu adafruit;
+  5. **ArduinoJson** by Benoit Blanchon
 
 - Arduino IDE Settings
 

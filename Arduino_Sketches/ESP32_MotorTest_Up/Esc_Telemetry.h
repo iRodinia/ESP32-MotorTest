@@ -2,7 +2,6 @@
 #define MY_ESC_TELEMETRY_H
 
 #include <Arduino.h>
-#include <SoftwareSerial.h>
 
 // BLHeli32 KISS structure
 struct EscTelemetryData {
@@ -28,7 +27,6 @@ struct TelemetryStats {
 
 class MyEscTelemetry {
 private:
-  SoftwareSerial* _serial;
   EscTelemetryData _data;
   TelemetryStats _stats;
 
@@ -103,7 +101,6 @@ private:
 
 public:
   MyEscTelemetry(uint8_t motor_pole_pair = 7) {
-    _serial = nullptr;
     _bufferIndex = 0;
     _frameStarted = false;
     _dataTimeout = 1000;
@@ -114,17 +111,10 @@ public:
     _motor_pole_num = motor_pole_pair;
   }
 
-  ~MyEscTelemetry() {
-    if(_serial){
-      delete(_serial);
-    }
-  }
-
-  String init(int8_t rxPin = 26, int8_t txPin = -1, long baudRate = 115200) {
+  String init(long baudRate = 115200) {
     uint8_t initNum = 0;
-    while(!_serial && initNum < 10){
-      _serial = new SoftwareSerial(rxPin, txPin);
-      _serial->begin(baudRate);
+    while(!Serial1 && initNum < 10){
+      Serial1.begin(baudRate);
       initNum++;
       delay(50);
     }
@@ -149,14 +139,14 @@ public:
   }
 
   void update() {
-    if (!_serial) return;
+    if (!Serial1) return;
     unsigned long now = millis();
     if (_frameStarted && (now - _frameStartTime > _frameTimeout)) {
       resetFrame();
     }
 
-    while (_serial->available()) {
-      uint8_t byte = _serial->read();
+    while (Serial1.available()) {
+      uint8_t byte = Serial1.read();
 
       if (byte == KISS_FRAME_START) {
         if (!_frameStarted) {
@@ -199,7 +189,7 @@ public:
   }
 
   int available() {
-    return _serial ? _serial->available() : 0;
+    return Serial1 ? Serial1.available() : 0;
   }
 
   void printData(Stream* output = &Serial) {
