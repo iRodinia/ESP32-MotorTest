@@ -50,7 +50,7 @@ void wifi_init() {
   Serial.println(ssid);
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
-    delay(50);
+    delay(100);
     Serial.print(".");
   }
   Serial.println("\nWiFi connected!");

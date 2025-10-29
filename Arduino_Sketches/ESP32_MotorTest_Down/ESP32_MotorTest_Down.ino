@@ -74,7 +74,7 @@ void onSerialCmdEvent() {
       continue;
     }
     serial_cmd[serial_cmd_index] = inChar;
-    serial_cmd_index;
+    serial_cmd_index++;
     if (inChar == '\n') {
       serial_cmd[serial_cmd_index] = '\0';
       parse_serial_cmd(String(serial_cmd));
@@ -96,7 +96,7 @@ void onSerial2CmdEvent() {
       continue;
     }
     serial2_cmd[serial2_cmd_index] = inChar;
-    serial2_cmd_index;
+    serial2_cmd_index++;
     if (inChar == '\n') {
       serial2_cmd[serial2_cmd_index] = '\0';
       parse_serial_cmd(String(serial2_cmd));
@@ -117,12 +117,14 @@ void sendData() {
   
   char resultStr[250];
   convert_data_to_string(myData, resultStr);
-  Serial2.println(resultStr);  // send data via Serial 2
+  char dataStr[250];
+  extract_data_skip_time(resultStr, dataStr);
+  Serial2.println(dataStr);  // send data via Serial 2
   if (start_log) {
     mySd.logMessage(resultStr);
   }
   if (start_serial_echo) {
-    Serial.println(resultStr);
+    Serial.println(dataStr);
   }
   if (start_wifi_broadcast) {
     if (WiFi.status() == WL_CONNECTED){

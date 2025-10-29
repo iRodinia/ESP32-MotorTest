@@ -19,6 +19,18 @@ void convert_data_to_string(MCU_Down_Data data, char* resultStr) {
   );
 }
 
+void extract_data_skip_time(const char* resultStr, char* output) {
+    int comma_count = 0;
+    const char* ptr = resultStr;
+    while (*ptr != '\0' && comma_count < 2) {
+        if (*ptr == ',') {
+            comma_count++;
+        }
+        ptr++;
+    }
+    strcpy(output, ptr);
+}
+
 void convert_data_to_json(MCU_Down_Data data, String& resultStr) {
   StaticJsonDocument<480> doc;
   doc["GlobalTime"] = data.glbT;
