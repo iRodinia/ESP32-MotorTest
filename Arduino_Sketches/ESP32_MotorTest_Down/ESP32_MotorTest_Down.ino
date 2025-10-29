@@ -38,6 +38,7 @@ WiFiUDP udp;
 MyDisplay myScreen;  // scl-33, sda-32
 MyIMU_GY85 mySensor;  // scl-22, sda-21
 SDCard mySd(18, 23, 19, 5);  //miso = 23, mosi = 19, wrong wiring...
+// Serial2: Rx-4, Tx-25
 
 void onTimer() {
   if (screen_fresh_cnt < 800) {
