@@ -136,10 +136,6 @@ void setup() {
   delay(500);
   Serial.println("\n===== ESP32 Motor Test MCU (Up) Initializing =====");
 
-  Serial2.begin(115200);  // Rx-16, Tx-17
-  while(!Serial2)
-    delay(10);
-
   Serial.println("Initializing submodules...");
   String init_message = "";
   wifi_init();
@@ -175,6 +171,8 @@ void setup() {
 
   Serial.println("===== System Initialization Done. =====\n");
 
+  Serial2.begin(115200, SERIAL_8N1, 4, 25);
+  delay(50);
   Serial.println("Wait for MCU (down) startup.");
   while(!Serial2.available()) delay(50);
   unsigned long time_now = now();
