@@ -4,6 +4,7 @@
 #include <Wire.h>  // Must include Wire here, otherwise all .h files won't include Wire
 #include <WiFi.h>
 #include <WiFiUdp.h>
+#include <HardwareSerial.h>
 #include <TimeLib.h>
 
 #include "SD_manager.h"
@@ -120,7 +121,8 @@ void sendData() {
   convert_data_to_string(myData, resultStr);
   char dataStr[250];
   extract_data_skip_time(resultStr, dataStr);
-  Serial2.println(dataStr);  // send data via Serial 2
+  Serial2.printf("%s\n", dataStr);  // send data via Serial 2
+  
   if (start_log) {
     mySd.logMessage(resultStr);
   }
@@ -148,10 +150,6 @@ void setup(){
   while (!Serial)
     delay(10);
   Serial.println("\n##### Start the Data Recording Board (Down) #####");
-
-  Serial2.begin(115200);  // Rx-16, Tx-17
-  while(!Serial2)
-    delay(10);
 
   Serial.println("Set I2C to fast mode (400kHz).");
   Wire.setClock(400000);
@@ -199,7 +197,7 @@ void setup(){
   delay(50);
 
   Serial.println("##### All modules initialized #####");
-  
+  Serial2.begin(115200, SERIAL_8N1, 4, 25);
   startRecordLT = millis();
 }
 
