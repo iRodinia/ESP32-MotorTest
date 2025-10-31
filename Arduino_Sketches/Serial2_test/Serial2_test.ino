@@ -4,13 +4,13 @@ void setup() {
   Serial.begin(115200);
   delay(50);
 
-  Serial2.begin(115200);
+  Serial1.begin(115200);
   delay(50);
 
 }
 
 void loop() {
-  Serial2.println("DDDDDDDD");
+  Serial1.println("DDDDDDDD");
   delay(300);
 
 }

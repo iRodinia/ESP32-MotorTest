@@ -113,7 +113,7 @@ void sendData() {
     mySd.logMessage(resultStr);
   }
   if (start_serial_echo) {
-    Serial.println(resultStr);
+    Serial.printf("%s\n", resultStr);
   }
   if (start_wifi_broadcast) {
     if (WiFi.status() == WL_CONNECTED){
@@ -195,7 +195,7 @@ void setup() {
 void loop() {
   onSerialCmdEvent();
 
-  if(millis() - lastDataUpdate > 501) {
+  if(millis() - lastDataUpdate > 153) {
     lastDataUpdate = millis();
     sendData();
   }

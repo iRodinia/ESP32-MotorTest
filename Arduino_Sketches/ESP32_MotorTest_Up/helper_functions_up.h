@@ -5,7 +5,7 @@
 #include <ArduinoJson.h>
 
 struct MCU_Up_Data {
-  char glbT[8]; float lcaT = 0;
+  char glbT[9]; float lcaT = 0;
   float lastCur = 0; float lastVol = 0; float lastPwr = 0;  // in A, V, W
   float lastCmd = 0; float lastRpm = 0; float lastThr = 0;  // in [0-1], r/s, N
   float lastAx = 0; float lastAy = 0; float lastAz = 0;  // in m/s^2
@@ -15,7 +15,7 @@ struct MCU_Up_Data {
 };
 
 void convert_data_to_string(MCU_Up_Data data, char* resultStr) {
-  sprintf(resultStr, "%s,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f",
+  sprintf(resultStr, "%s,%.2f,%.2f,%.2f,%.2f,%.3f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.1f",
         data.glbT, data.lcaT, data.lastCur, data.lastVol, data.lastPwr, 
         data.lastCmd, data.lastRpm, data.lastThr, data.lastAx, data.lastAy, data.lastAz, 
         data.lastGx, data.lastGy, data.lastGz, data.lastMx, data.lastMy, data.lastMz, data.lastEscTmp

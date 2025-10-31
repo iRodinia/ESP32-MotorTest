@@ -206,7 +206,7 @@ void loop(){
   onSerialCmdEvent();
   onSerial2CmdEvent();
 
-  if(millis() - lastDataUpdate > 203) {
+  if(millis() - lastDataUpdate > 103) {
     lastDataUpdate = millis();
     sendData();
   }

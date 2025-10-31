@@ -8,8 +8,8 @@
 
 #include "helper_functions_up.h"
 
-#define MAX_LINE_NUM 300
-#define MAX_LINE_LEN 250
+#define MAX_LINE_NUM 400
+#define MAX_LINE_LEN 180
 
 #define LED_PIN 2  // LED blink means data recording, LED on means flushing to SD card
 #define LED_TOGGLE() digitalWrite(LED_PIN, digitalRead(LED_PIN) ^ 1)
