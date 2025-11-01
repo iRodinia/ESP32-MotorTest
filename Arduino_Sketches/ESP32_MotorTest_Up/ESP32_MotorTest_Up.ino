@@ -136,6 +136,9 @@ void setup() {
   delay(500);
   Serial.println("\n===== ESP32 Motor Test MCU (Up) Initializing =====");
 
+  Serial.println("Set I2C to fast mode (400kHz).");
+  Wire.setClock(400000);
+
   Serial.println("Initializing submodules...");
   String init_message = "";
   wifi_init();
