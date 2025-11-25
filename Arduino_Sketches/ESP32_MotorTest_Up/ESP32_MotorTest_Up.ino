@@ -28,6 +28,8 @@ uint32_t start_record_lt = 0;  // start recording local time ms
 uint32_t DEFAULT_TIME = 1357041600;  // Jan 1 2013
 uint32_t screen_fresh_cnt = 0;
 uint32_t lastDataUpdate = 0;
+uint32_t lastDataRecord = 0;
+uint32_t lastTimeUpdate = 0;
 uint32_t lastSensorFastUpdate = 0;
 uint32_t lastSensorSlowUpdate = 0;
 String log_headline = "GlobalTime,LocalTime,EscCurrent,EscVoltage,EscPower,EscTemperature,Command,MotorRpm,MotorForce,AccelerationX,AccelerationY,AccelerationZ,GyroscopeX,GyroscopeY,GyroscopeZ,MagnetX,MagnetY,MagnetZ";
@@ -50,7 +52,7 @@ void wifi_init() {
   Serial.println(ssid);
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
-    delay(100);
+    delay(500);
     Serial.print(".");
   }
   Serial.println("\nWiFi connected!");
@@ -61,7 +63,7 @@ void wifi_init() {
 /* Callback function */
 void onTimer() {
   if (screen_fresh_cnt < 800) {
-    myScreen.set_Line1("T:" + myClock.getCurrentTime());
+    myScreen.set_Line1("T:" + String(myData.glbT));
     myScreen.set_Line2("cur:"+String(myData.lastCur,2)+","+"vol:"+String(myData.lastVol,2));
     myScreen.set_Line3("pwr:"+String(myData.lastPwr,2)+","+"thr:"+String(myData.lastThr,2));
     myScreen.set_Line4("rpm:"+String(myData.lastRpm,2)+","+"cmd:"+String(myData.lastCmd,2));
@@ -105,13 +107,8 @@ void onSerialCmdEvent() {
 }
 
 void sendData() {
-  sprintf(myData.glbT, "%02d:%02d:%02d", hour(), minute(), second());
-  myData.lcaT = (millis() - start_record_lt) / 1000.0f;
   char resultStr[300];
   convert_data_to_string(myData, resultStr);
-  if (start_log) {
-    mySd.logMessage(resultStr);
-  }
   if (start_serial_echo) {
     Serial.printf("%s\n", resultStr);
   }
@@ -130,14 +127,22 @@ void sendData() {
   }
 }
 
+void recordData() {
+  if (start_log) {
+    char resultStr[300];
+    convert_data_to_string(myData, resultStr);
+    mySd.logMessage(resultStr);
+  }
+}
+
 
 void setup() {
   Serial.begin(115200);
   delay(500);
   Serial.println("\n===== ESP32 Motor Test MCU (Up) Initializing =====");
 
-  Serial.println("Set I2C to fast mode (400kHz).");
-  Wire.setClock(400000);
+  //Serial.println("Set I2C to fast mode (400kHz).");
+  //Wire.setClock(400000);
 
   Serial.println("Initializing submodules...");
   String init_message = "";
@@ -172,24 +177,27 @@ void setup() {
   Serial.println("Screen timer initialized.");
   delay(50);
 
+  start_serial_echo = true;
+  Serial.println("Serial data echo started.");
+
   Serial.println("===== System Initialization Done. =====\n");
 
   Serial2.begin(115200, SERIAL_8N1, 4, 25);
   delay(50);
   Serial.println("Wait for MCU (down) startup.");
-  while(!Serial2.available()) delay(50);
+  while(!Serial2.available()) delay(100);
   unsigned long time_now = now();
   Serial2.println("Time:"+String(time_now));
   Serial.println("MCU (down) connected.");
-  delay(50);
+  delay(100);
   Serial2.println("Reset_Folder_Name");
-  delay(50);
+  delay(100);
   Serial2.println("Reset_File_Name");
-  delay(50);
+  delay(100);
   Serial2.println("UDP_IP:"+udpAddress);
-  delay(50);
+  delay(100);
   Serial2.println("UDP_Port:"+String(udpPort));
-  delay(50);
+  delay(100);
 
   start_record_lt = millis();
   flush_serial2_buffer();
@@ -198,12 +206,23 @@ void setup() {
 void loop() {
   onSerialCmdEvent();
 
-  if(millis() - lastDataUpdate > 153) {
+  if(millis() - lastTimeUpdate > 53) {
+    lastTimeUpdate = millis();
+    sprintf(myData.glbT, "%02d:%02d:%02d", hour(), minute(), second());
+    myData.lcaT = (millis() - start_record_lt) / 1000.0f;
+  }
+
+  if(millis() - lastDataUpdate > 101) {
     lastDataUpdate = millis();
     sendData();
   }
 
-  if(millis() - lastSensorSlowUpdate > 151) {
+  if(millis() - lastDataRecord > 209) {
+    lastDataRecord = millis();
+    recordData();
+  }
+
+  if(millis() - lastSensorSlowUpdate > 105) {
     lastSensorSlowUpdate = millis();
     myADC.readPower(myData.lastVol, myData.lastCur, myData.lastPwr);
     myADC.readForce(myData.lastThr);
@@ -217,7 +236,7 @@ void loop() {
     }
   }
 
-  if(millis() - lastSensorFastUpdate > 97) {
+  if(millis() - lastSensorFastUpdate > 67) {
     lastSensorFastUpdate = millis();
     myEsc.update();
     if(myEsc.isValid()){
@@ -235,12 +254,10 @@ void parse_serial_cmd(String command) {
   command.trim();
   if (command == "Start_Record") {
     start_log = true;
-    start_record_lt = millis();
     Serial.println("SD data recording started.");
   }
   else if (command == "Stop_Record") {
     if(start_log){
-      start_record_lt = millis();
       mySd.flushToCard();
     }
     start_log = false;

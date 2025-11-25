@@ -1,68 +1,10 @@
 #ifndef __OLED12864__
 #define __OLED12864__
 // Declaration for a 0.96" 12864 display connected to I2C (SDA, SCL pins)
+// Using U8g2 library for display control
 
 #include <Arduino.h>
-#include <Wire.h>
-#include <SPI.h>
-#include "12864_font.h"
-
-#define OLED_CMD  0
-#define OLED_DATA 1
-#define I2C_DELAY_US 5
-
-uint8_t OLED_GRAM[128][8]; // display buffer
-
-class myI2C {
-public:
-  void init(uint8_t scl, uint8_t sda){
-    _scl_pin = scl;
-    _sda_pin = sda;
-  }
-
-  void I2C_Start(void){
-    OLED_SDIN_Set();
-    OLED_SCLK_Set();
-    OLED_SDIN_Clr();
-    OLED_SCLK_Clr();
-  }
-
-  void I2C_Stop(void){
-    OLED_SCLK_Set();
-    OLED_SDIN_Clr();
-    OLED_SDIN_Set();
-  }
-
-  void I2C_WaitAck(void){
-    OLED_SDIN_Set();
-    OLED_SCLK_Set();
-    OLED_SCLK_Clr();
-    OLED_SDIN_Clr();
-  }
-
-  void Send_Byte(uint8_t dat){
-    uint8_t i;
-    for(i=0;i<8;i++){
-      OLED_SCLK_Clr();
-      if(dat&0x80){
-        OLED_SDIN_Set();
-      }
-      else{
-        OLED_SDIN_Clr();
-      }
-      OLED_SCLK_Set();
-      OLED_SCLK_Clr();
-      dat<<=1;
-    }
-  }
-
-private:
-  uint8_t _scl_pin, _sda_pin;
-  void OLED_SCLK_Clr(){digitalWrite(_scl_pin, LOW);}
-  void OLED_SCLK_Set(){digitalWrite(_scl_pin, HIGH);}
-  void OLED_SDIN_Clr(){digitalWrite(_sda_pin, LOW);}
-  void OLED_SDIN_Set(){digitalWrite(_sda_pin, HIGH);}
-};
+#include <U8g2lib.h>
 
 // Coordinates of the display is originated from up-left corner (0,0)
 class MyDisplay {
@@ -84,7 +26,6 @@ public:
 
 protected:
   // These functions won't take effect immediately, need to call OLED_Refresh() afterwards
-  // Size of the font: 12-6x12, 16-8x16, 24-12x24
   void OLED_DrawPoint(uint8_t x,uint8_t y);  // x:0~127, y:0~63
   void OLED_ClearPoint(uint8_t x,uint8_t y);  // x:0~127, y:0~63
   void OLED_DrawLine(uint8_t x1,uint8_t y1,uint8_t x2,uint8_t y2);  // x:0~128, y:0~64
@@ -95,56 +36,33 @@ protected:
   void OLED_ShowPicture(uint8_t x0,uint8_t y0,uint8_t x1,uint8_t y1,const uint8_t BMP[]);  // (x0,y0) start position, (x1,y1) end position, BMP[] pic buffer
 
 private:
-  void OLED_WR_Byte(uint8_t dat,uint8_t mode);  // send a byte to ssd1306. mode: 0-command, 1-data
-  u32_t OLED_Pow(uint8_t m,uint8_t n);  // self-defined power function. result = m^n
-  void OLED_WR_BP(uint8_t x,uint8_t y);  // set start position of writing oled buffer
-
-  myI2C _i2c_port;
+  U8G2_SSD1306_128X64_NONAME_F_SW_I2C *u8g2;
   uint8_t _scl, _sda;
   String _line1, _line2, _line3, _line4, _line5;
   bool _checkbox;
+  bool _color_inverted;
+  bool _display_flipped;
+  
+  u32_t OLED_Pow(uint8_t m,uint8_t n);  // self-defined power function. result = m^n
+  const uint8_t* getFontBySize(uint8_t size);
 };
 
 MyDisplay::MyDisplay(uint8_t scl, uint8_t sda){
   _scl = scl;
   _sda = sda;
+  _color_inverted = false;
+  _display_flipped = false;
+  u8g2 = nullptr;
 }
 
 String MyDisplay::init(){
-  pinMode(_scl, OUTPUT);
-  pinMode(_sda, OUTPUT);
-  _i2c_port.init(_scl, _sda);
-  delay(100);
-
-  OLED_WR_Byte(0xAE,OLED_CMD);  //--turn off oled panel
-  OLED_WR_Byte(0x00,OLED_CMD);  //---set low column address
-  OLED_WR_Byte(0x10,OLED_CMD);  //---set high column address
-  OLED_WR_Byte(0x40,OLED_CMD);  //--set start line address  Set Mapping RAM Display Start Line (0x00~0x3F)
-  OLED_WR_Byte(0x81,OLED_CMD);  //--set contrast control register
-  OLED_WR_Byte(0xCF,OLED_CMD);  // Set SEG Output Current Brightness
-  OLED_WR_Byte(0xA1,OLED_CMD);  //--Set SEG/Column Mapping     0xa0:left-right reverse, 0xa1:normal
-  OLED_WR_Byte(0xC8,OLED_CMD);  //Set COM/Row Scan Direction   0xc0:up-down reverse, 0xc8:normal
-  OLED_WR_Byte(0xA6,OLED_CMD);  //--set normal display
-  OLED_WR_Byte(0xA8,OLED_CMD);  //--set multiplex ratio(1 to 64)
-  OLED_WR_Byte(0x3f,OLED_CMD);  //--1/64 duty
-  OLED_WR_Byte(0xD3,OLED_CMD);  //-set display offset Shift Mapping RAM Counter (0x00~0x3F)
-  OLED_WR_Byte(0x00,OLED_CMD);  //-not offset
-  OLED_WR_Byte(0xd5,OLED_CMD);  //--set display clock divide ratio/oscillator frequency
-  OLED_WR_Byte(0x80,OLED_CMD);  //--set divide ratio, Set Clock as 100 Frames/Sec
-  OLED_WR_Byte(0xD9,OLED_CMD);  //--set pre-charge period
-  OLED_WR_Byte(0xF1,OLED_CMD);  //Set Pre-Charge as 15 Clocks & Discharge as 1 Clock
-  OLED_WR_Byte(0xDA,OLED_CMD);  //--set com pins hardware configuration
-  OLED_WR_Byte(0x12,OLED_CMD);
-  OLED_WR_Byte(0xDB,OLED_CMD);  //--set vcomh
-  OLED_WR_Byte(0x40,OLED_CMD);  //Set VCOM Deselect Level
-  OLED_WR_Byte(0x20,OLED_CMD);  //-Set Page Addressing Mode (0x00/0x01/0x02)
-  OLED_WR_Byte(0x02,OLED_CMD);  //
-  OLED_WR_Byte(0x8D,OLED_CMD);  //--set Charge Pump enable/disable
-  OLED_WR_Byte(0x14,OLED_CMD);  //--set(0x10) disable
-  OLED_WR_Byte(0xA4,OLED_CMD);  // Disable Entire Display On (0xa4/0xa5)
-  OLED_WR_Byte(0xA6,OLED_CMD);  // Disable Inverse Display On (0xa6/a7) 
-  OLED_WR_Byte(0xAF,OLED_CMD);
-
+  // Initialize U8g2 with software I2C
+  // U8G2_SSD1306_128X64_NONAME_F_SW_I2C(rotation, clock, data, reset)
+  u8g2 = new U8G2_SSD1306_128X64_NONAME_F_SW_I2C(U8G2_R0, _scl, _sda, U8X8_PIN_NONE);
+  
+  u8g2->begin();
+  u8g2->setDrawColor(1);
+  
   OLED_Clear();
   set_Line1("T:0");
   set_Line2(" ");
@@ -156,36 +74,32 @@ String MyDisplay::init(){
 }
 
 void MyDisplay::OLED_Reset_Display(void){
-  OLED_WR_Byte(0xAE, OLED_CMD);
-  OLED_WR_Byte(0xD3, OLED_CMD);
-  OLED_WR_Byte(0x00, OLED_CMD);
-  OLED_WR_Byte(0x40, OLED_CMD);
-  OLED_WR_Byte(0x20, OLED_CMD);
-  OLED_WR_Byte(0x00, OLED_CMD);
-  OLED_WR_Byte(0x21, OLED_CMD);
-  OLED_WR_Byte(0x00, OLED_CMD);
-  OLED_WR_Byte(0x7F, OLED_CMD);
-  OLED_WR_Byte(0x22, OLED_CMD);
-  OLED_WR_Byte(0x00, OLED_CMD);
-  OLED_WR_Byte(0x07, OLED_CMD);
-  OLED_WR_Byte(0xAF, OLED_CMD);
+  // U8g2 handles reset internally, but we can reinitialize if needed
+  if(u8g2){
+    u8g2->clear();
+    u8g2->sendBuffer();
+  }
 }
 
 void MyDisplay::OLED_ColorTurn(uint8_t i){
-  if(!i)
-    OLED_WR_Byte(0xA6,OLED_CMD);  // 0:normal
-  else
-    OLED_WR_Byte(0xA7,OLED_CMD);  // 1:reverse
+  _color_inverted = (i != 0);
+  if(u8g2){
+    if(_color_inverted){
+      u8g2->setDrawColor(0);  // inverted
+    } else {
+      u8g2->setDrawColor(1);  // normal
+    }
+  }
 }
 
 void MyDisplay::OLED_DisplayTurn(uint8_t i){
-  if(i==0){
-    OLED_WR_Byte(0xC8,OLED_CMD);  // 0:normal
-    OLED_WR_Byte(0xA1,OLED_CMD);
-  }
-  else{
-    OLED_WR_Byte(0xC0,OLED_CMD);  // 1:reverse
-    OLED_WR_Byte(0xA0,OLED_CMD);
+  _display_flipped = (i != 0);
+  if(u8g2){
+    if(_display_flipped){
+      u8g2->setDisplayRotation(U8G2_R2);  // 180 degree rotation
+    } else {
+      u8g2->setDisplayRotation(U8G2_R0);  // normal
+    }
   }
 }
 
@@ -228,217 +142,144 @@ void MyDisplay::set_Checkbox(bool flag){
   _checkbox = flag;
 }
 
-void MyDisplay::OLED_Refresh(void)
-{
-  uint8_t i,n;
-  for(i=0;i<8;i++){
-    OLED_WR_Byte(0xb0+i,OLED_CMD);  // row start addr
-    OLED_WR_Byte(0x00,OLED_CMD);    // low column start addr
-    OLED_WR_Byte(0x10,OLED_CMD);    // high column start addr
-    for(n=0;n<128;n++)
-      OLED_WR_Byte(OLED_GRAM[n][i],OLED_DATA);
+void MyDisplay::OLED_Refresh(void){
+  if(u8g2){
+    u8g2->sendBuffer();
   }
 }
 
 void MyDisplay::OLED_UpdateRam(void){
-  uint8_t i,n;
-  for(i=0;i<8;i++){
-    for(n=0;n<128;n++){
-      OLED_GRAM[n][i]=0;  //clear all data
-    }
-  }
-  OLED_ShowString(0, 1, _line1.c_str(), 12);
-  OLED_DrawLine(0,15,128,15);
-  OLED_ShowString(0, 16, _line2.c_str(), 12);
-  OLED_ShowString(0, 28, _line3.c_str(), 12);
-  OLED_ShowString(0, 40, _line4.c_str(), 12);
-  OLED_ShowString(0, 52, _line5.c_str(), 12);
-
-  OLED_DrawCircle(117,6,5);
+  if(!u8g2) return;
+  
+  u8g2->clearBuffer();
+  
+  // Draw content using the stored strings
+  u8g2->setFont(u8g2_font_6x12_tr);  // 6x12 font for size 12
+  
+  // Line 1 - header
+  u8g2->drawStr(0, 11, _line1.c_str());  // y position is baseline
+  
+  // Draw horizontal line
+  u8g2->drawLine(0, 15, 127, 15);
+  
+  // Lines 2-5 - content
+  u8g2->drawStr(0, 27, _line2.c_str());
+  u8g2->drawStr(0, 39, _line3.c_str());
+  u8g2->drawStr(0, 51, _line4.c_str());
+  u8g2->drawStr(0, 63, _line5.c_str());
+  
+  // Draw checkbox circle
+  u8g2->drawCircle(117, 6, 5, U8G2_DRAW_ALL);
+  
+  // Fill checkbox if checked
   if(_checkbox){
-    uint8_t i,j;
-    for(i=116;i<=118;i++){
-      for(j=5;j<=7;j++){
-        OLED_DrawPoint(i,j);
-      }
-    }
+    u8g2->drawDisc(117, 6, 3, U8G2_DRAW_ALL);  // filled circle
   }
 }
 
 void MyDisplay::OLED_Clear(void){
-  uint8_t i,n;
-  for(i=0;i<8;i++){
-    for(n=0;n<128;n++){
-      OLED_GRAM[n][i]=0;  //clear all data
-    }
-  }
-  OLED_Refresh();  // refresh
-}
-
-void MyDisplay::OLED_DrawPoint(uint8_t x,uint8_t y){
-  uint8_t i,m,n;
-  i=y/8;
-  m=y%8;
-  n=1<<m;
-  OLED_GRAM[x][i]|=n;
-}
-
-void MyDisplay::OLED_ClearPoint(uint8_t x,uint8_t y){
-  uint8_t i,m,n;
-  i=y/8;
-  m=y%8;
-  n=1<<m;
-  OLED_GRAM[x][i]=~OLED_GRAM[x][i];
-  OLED_GRAM[x][i]|=n;
-  OLED_GRAM[x][i]=~OLED_GRAM[x][i];
-}
-
-void MyDisplay::OLED_DrawLine(uint8_t x1,uint8_t y1,uint8_t x2,uint8_t y2){
-  uint8_t i,k,k1,k2,y0;
-  if(x1==x2){
-    for(i=0;i<(y2-y1);i++){
-      OLED_DrawPoint(x1,y1+i);
-    }
-  }
-  else if(y1==y2){
-    for(i=0;i<(x2-x1);i++){
-      OLED_DrawPoint(x1+i,y1);
-    }
-  }
-  else{
-    k1=y2-y1;
-    k2=x2-x1;
-    k=k1*10/k2;
-    for(i=0;i<(x2-x1);i++){
-      OLED_DrawPoint(x1+i,y1+i*k/10);
-    }
+  if(u8g2){
+    u8g2->clearBuffer();
+    u8g2->sendBuffer();
   }
 }
 
-void MyDisplay::OLED_DrawCircle(uint8_t x,uint8_t y,uint8_t r){
-  int a, b,num;
-  a = 0;
-  b = r;
-  while(2 * b * b >= r * r){
-    OLED_DrawPoint(x + a, y - b);
-    OLED_DrawPoint(x - a, y - b);
-    OLED_DrawPoint(x - a, y + b);
-    OLED_DrawPoint(x + a, y + b);
-    OLED_DrawPoint(x + b, y + a);
-    OLED_DrawPoint(x + b, y - a);
-    OLED_DrawPoint(x - b, y - a);
-    OLED_DrawPoint(x - b, y + a);
-    a++;
-    num = (a * a + b * b) - r*r;  // calc the distance to center
-    if(num > 0){
-      b--;
-      a--;
-    }
+void MyDisplay::OLED_DrawPoint(uint8_t x, uint8_t y){
+  if(u8g2){
+    u8g2->drawPixel(x, y);
   }
 }
 
-void MyDisplay::OLED_ShowChar(uint8_t x,uint8_t y,const char chr,uint8_t size1){
-  uint8_t i,m,temp,size2,chr1;
-  uint8_t y0=y;
-  size2=(size1/8+((size1%8)?1:0))*(size1/2);
-  chr1=chr-' ';
-  for(i=0;i<size2;i++){
-    if(size1==12){ 
-      temp=pgm_read_byte(&asc2_1206[chr1][i]);
-    }  // use 1206 font
-    else if(size1==16){
-      temp=pgm_read_byte(&asc2_1608[chr1][i]);
-    }  // use 1608 font
-    else if(size1==24){
-      temp=pgm_read_byte(&asc2_2412[chr1][i]);
-    }  // use 2412 font
-    else
-      return;
-    
-    for(m=0;m<8;m++){  // write buffer
-      if(temp&0x80)
-        OLED_DrawPoint(x,y);
-      else
-        OLED_ClearPoint(x,y);
-      temp<<=1;
-      y++;
-      if((y-y0)==size1){
-        y=y0;
-        x++;
-        break;
-      }
-    }
+void MyDisplay::OLED_ClearPoint(uint8_t x, uint8_t y){
+  if(u8g2){
+    u8g2->setDrawColor(0);  // set to background color
+    u8g2->drawPixel(x, y);
+    u8g2->setDrawColor(_color_inverted ? 0 : 1);  // restore draw color
   }
 }
 
-void MyDisplay::OLED_ShowString(uint8_t x,uint8_t y,const char *chr,uint8_t size1)
-{
-  while((*chr>=' ')&&(*chr<='~')){  // check if illigal character
-    OLED_ShowChar(x,y,*chr,size1);
-    x+=size1/2;
-    if(x>128-size1/2){  // automatic new line
-      x=0;
-      y+=size1;
-    }
-    chr++;
+void MyDisplay::OLED_DrawLine(uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2){
+  if(u8g2){
+    u8g2->drawLine(x1, y1, x2, y2);
   }
 }
 
-u32_t MyDisplay::OLED_Pow(uint8_t m,uint8_t n){
-  u32_t result=1;
+void MyDisplay::OLED_DrawCircle(uint8_t x, uint8_t y, uint8_t r){
+  if(u8g2){
+    u8g2->drawCircle(x, y, r, U8G2_DRAW_ALL);
+  }
+}
+
+const uint8_t* MyDisplay::getFontBySize(uint8_t size){
+  switch(size){
+    case 12:
+      return u8g2_font_6x12_tr;  // 6x12 font
+    case 16:
+      return u8g2_font_8x13_tr;  // 8x13 font (closest to 8x16)
+    case 24:
+      return u8g2_font_12x24_tr;  // 12x24 font (needs to be available)
+    default:
+      return u8g2_font_6x12_tr;
+  }
+}
+
+void MyDisplay::OLED_ShowChar(uint8_t x, uint8_t y, const char chr, uint8_t size1){
+  if(!u8g2) return;
+  
+  const uint8_t* font = getFontBySize(size1);
+  u8g2->setFont(font);
+  
+  char str[2] = {chr, '\0'};
+  // U8g2 uses baseline for y coordinate, adjust accordingly
+  u8g2->drawStr(x, y + size1 - 1, str);
+}
+
+void MyDisplay::OLED_ShowString(uint8_t x, uint8_t y, const char *chr, uint8_t size1){
+  if(!u8g2) return;
+  
+  const uint8_t* font = getFontBySize(size1);
+  u8g2->setFont(font);
+  
+  // U8g2 uses baseline for y coordinate
+  u8g2->drawStr(x, y + size1 - 1, chr);
+}
+
+u32_t MyDisplay::OLED_Pow(uint8_t m, uint8_t n){
+  u32_t result = 1;
   while(n--){
-    result*=m;
+    result *= m;
   }
   return result;
 }
 
-void MyDisplay::OLED_ShowNum(uint8_t x,uint8_t y,int num,uint8_t len,uint8_t size1)
-{
-  uint8_t t,temp;
-  for(t=0;t<len;t++){
-    temp=(num/OLED_Pow(10,len-t-1))%10;
-      if(temp==0){
-        OLED_ShowChar(x+(size1/2)*t,y,'0',size1);
-      }
-      else{
-        OLED_ShowChar(x+(size1/2)*t,y,temp+'0',size1);
-      }
-  }
+void MyDisplay::OLED_ShowNum(uint8_t x, uint8_t y, int num, uint8_t len, uint8_t size1){
+  if(!u8g2) return;
+  
+  char buffer[12];  // enough for most numbers
+  snprintf(buffer, sizeof(buffer), "%0*d", len, num);
+  OLED_ShowString(x, y, buffer, size1);
 }
 
-void MyDisplay::OLED_WR_BP(uint8_t x,uint8_t y){
-  OLED_WR_Byte(0xb0+y,OLED_CMD);  // set start addr
-  OLED_WR_Byte(((x&0xf0)>>4)|0x10,OLED_CMD);
-  OLED_WR_Byte((x&0x0f),OLED_CMD);
-}
-
-void MyDisplay::OLED_ShowPicture(uint8_t x0,uint8_t y0,uint8_t x1,uint8_t y1,const uint8_t BMP[]){
-  int j=0;
-  uint8_t t;
-  uint8_t x,y;
-  for(y=y0;y<y1;y++){
-    OLED_WR_BP(x0,y);
-    for(x=x0;x<x1;x++){
-      t=pgm_read_byte(&BMP[j++]);
-      OLED_WR_Byte(t,OLED_DATA);
+void MyDisplay::OLED_ShowPicture(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1, const uint8_t BMP[]){
+  if(!u8g2) return;
+  
+  // U8g2 uses XBM format, but we can draw pixel by pixel for compatibility
+  uint8_t width = x1 - x0;
+  uint8_t height = y1 - y0;
+  
+  for(uint8_t y = 0; y < height; y++){
+    for(uint8_t x = 0; x < width; x++){
+      uint8_t byte_index = y * width + x;
+      uint8_t pixel = BMP[byte_index];
+      
+      // Draw pixels based on the byte value
+      for(uint8_t bit = 0; bit < 8; bit++){
+        if(pixel & (1 << bit)){
+          u8g2->drawPixel(x0 + x, y0 + y * 8 + bit);
+        }
+      }
     }
   }
-}
-
-void MyDisplay::OLED_WR_Byte(uint8_t dat,uint8_t mode){
-  _i2c_port.I2C_Start();
-  _i2c_port.Send_Byte(0x78);
-  _i2c_port.I2C_WaitAck();
-  if(mode){
-    _i2c_port.Send_Byte(0x40);
-  }
-  else{
-    _i2c_port.Send_Byte(0x00);
-  }
-  _i2c_port.I2C_WaitAck();
-  _i2c_port.Send_Byte(dat);
-  _i2c_port.I2C_WaitAck();
-  _i2c_port.I2C_Stop();
 }
 
 #endif

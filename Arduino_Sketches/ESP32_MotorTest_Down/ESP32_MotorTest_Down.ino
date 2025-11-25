@@ -26,8 +26,10 @@ uint32_t DEFAULT_TIME = 1357041600;  // Jan 1 2013
 uint32_t screen_fresh_cnt = 0;
 uint32_t startRecordLT = 0;  // start recording local time
 uint32_t lastDataUpdate = 0;
+uint32_t lastDataRecord = 0;
 uint32_t lastSensorFastUpdate = 0;
 uint32_t lastSensorSlowUpdate = 0;
+uint32_t lastTimeUpdate = 0;
 String log_headline = "GlobalTime,LocalTime,AccelerationX,AccelerationY,AccelerationZ,GyroscopeX,GyroscopeY,GyroscopeZ,MagnetX,MagnetY,MagnetZ";
 
 char serial_cmd[64];  // store the received cmd from main serial
@@ -109,23 +111,12 @@ void onSerial2CmdEvent() {
 }
 
 void sendData() {
-  if (timeStatus() == timeNotSet) {
-    sprintf(myData.glbT, "N/A");
-  }
-  else {
-    sprintf(myData.glbT, "%02d:%02d:%02d", hour(), minute(), second());
-  }
-  myData.lcaT = (millis() - startRecordLT) / 1000.0f;
-  
   char resultStr[250];
   convert_data_to_string(myData, resultStr);
   char dataStr[250];
   extract_data_skip_time(resultStr, dataStr);
   Serial2.printf("%s\n", dataStr);  // send data via Serial 2
   
-  if (start_log) {
-    mySd.logMessage(resultStr);
-  }
   if (start_serial_echo) {
     Serial.println(dataStr);
   }
@@ -144,6 +135,14 @@ void sendData() {
   }
 }
 
+void recordData() {
+  if (start_log) {
+    char resultStr[250];
+    convert_data_to_string(myData, resultStr);
+    mySd.logMessage(resultStr);
+  }
+}
+
 
 void setup(){
   Serial.begin(115200);  // usb
@@ -157,7 +156,7 @@ void setup(){
   Serial.print("Trying to conncet to Lab WiFi.");
   uint8_t wifi_connect_tms = 0;
   WiFi.begin(wifi_ssid, wifi_pswd);
-  while(WiFi.status() != WL_CONNECTED && wifi_connect_tms < 5){
+  while(WiFi.status() != WL_CONNECTED && wifi_connect_tms < 10){
     Serial.print(".");
     wifi_connect_tms += 1;
     delay(200);
@@ -206,6 +205,22 @@ void loop(){
   onSerialCmdEvent();
   onSerial2CmdEvent();
 
+  if(millis() - lastTimeUpdate > 53) {
+    lastTimeUpdate = millis();
+    if (timeStatus() == timeNotSet) {
+      sprintf(myData.glbT, "N/A");
+    }
+    else {
+      sprintf(myData.glbT, "%02d:%02d:%02d", hour(), minute(), second());
+    }
+    myData.lcaT = (millis() - startRecordLT) / 1000.0f;
+  }
+
+  if(millis() - lastDataRecord > 209) {
+    lastDataRecord = millis();
+    recordData();
+  }
+
   if(millis() - lastDataUpdate > 103) {
     lastDataUpdate = millis();
     sendData();
@@ -233,12 +248,10 @@ void parse_serial_cmd(String command) {
   command.trim();
   if (command == "Start_Record") {
     start_log = true;
-    startRecordLT = millis();
     Serial.println("SD data recording started.");
   }
   else if (command == "Stop_Record") {
     if(start_log){
-      startRecordLT = millis();
       mySd.flushToCard();
     }
     start_log = false;
