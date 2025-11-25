@@ -207,12 +207,6 @@ void loop(){
 
   if(millis() - lastTimeUpdate > 53) {
     lastTimeUpdate = millis();
-    if (timeStatus() == timeNotSet) {
-      sprintf(myData.glbT, "N/A");
-    }
-    else {
-      sprintf(myData.glbT, "%02d:%02d:%02d", hour(), minute(), second());
-    }
     myData.lcaT = (millis() - startRecordLT) / 1000.0f;
   }
 
@@ -279,8 +273,6 @@ void parse_serial_cmd(String command) {
   }
   else if (command == "Reset_Folder_Name"){
     if (timeStatus() != timeNotSet) {
-      char timeStr[12];
-      sprintf(timeStr, "%04d-%02d-%02d", year(), month(), day());
       mySd.setFolderName(String(timeStr));
       Serial.println("SD folder name reset to date.");
     }

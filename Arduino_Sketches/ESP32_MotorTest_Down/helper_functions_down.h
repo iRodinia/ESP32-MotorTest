@@ -5,7 +5,7 @@
 #include <ArduinoJson.h>
 
 struct MCU_Down_Data {
-  char glbT[9]; float lcaT = 0;
+  float lcaT = 0;
   float lastAx = 0; float lastAy = 0; float lastAz = 0;  // in m/s^2
   float lastGx = 0; float lastGy = 0; float lastGz = 0;  // in rad/s
   float lastMx = 0; float lastMy = 0; float lastMz = 0;  // in μT
