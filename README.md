@@ -71,12 +71,11 @@ Overview of the ESP32-Wroom-DA module:
   2. **NTPClient** by Fabrice Weinberg; **Time** by Michael Margolis;
   3. **Adafruit ADXL345** by Adafruit; **Adafruit HMC5883 Unified** by Adafruit; **Grove 3-Axis Digital Gyro** by Seeed Studio;
   4. **Adafruit ADS1X15** bu adafruit;
-  5. **ArduinoJson** by Benoit Blanchon
+  5. **ArduinoJson** by Benoit Blanchon;
+  6. **U8g2** by oliver;
 
 - Arduino IDE Settings
 
   ![arduino_ide_settings](.\\README_resources\\arduino_ide_settings.png "Picture of the Arduino IDE settings")
-
-  Pay attention that **Flash Mode** is set to **DIO**
 
   
