@@ -9,8 +9,7 @@
 #include "12864_display.h"
 #include "SD_manager.h"
 #include "Time_manager.h"
-#include "Esc_Telemetry.h"
-#include "Pwm_reader.h"
+#include "Serial_manager.h"
 #include "My_ads1115_sensor.h"
 #include "helper_functions_up.h"
 
@@ -250,7 +249,7 @@ void loop() {
 }
 
 
-void parse_serial_cmd(String command) {
+void parseSerial0Cmd(String command) {
   command.trim();
   if (command == "Start_Record") {
     start_log = true;
