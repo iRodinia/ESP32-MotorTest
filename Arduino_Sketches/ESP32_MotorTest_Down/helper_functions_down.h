@@ -13,27 +13,14 @@ struct MCU_Down_Data {
 };
 
 void convert_data_to_string(MCU_Down_Data data, char* resultStr) {
-  sprintf(resultStr, "%s,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f",
-    data.glbT, data.lcaT, data.lastAx, data.lastAy, data.lastAz, 
+  sprintf(resultStr, "%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f",
+    data.lcaT, data.lastAx, data.lastAy, data.lastAz, 
     data.lastGx, data.lastGy, data.lastGz, data.lastMx, data.lastMy, data.lastMz, data.lastTmp
   );
 }
 
-void extract_data_skip_time(const char* resultStr, char* output) {
-    int comma_count = 0;
-    const char* ptr = resultStr;
-    while (*ptr != '\0' && comma_count < 2) {
-        if (*ptr == ',') {
-            comma_count++;
-        }
-        ptr++;
-    }
-    strcpy(output, ptr);
-}
-
 void convert_data_to_json(MCU_Down_Data data, String& resultStr) {
   StaticJsonDocument<480> doc;
-  doc["GlobalTime"] = data.glbT;
   doc["LocalTime"] = data.lcaT;
   doc["AccelerationX"] = data.lastAx;
   doc["AccelerationY"] = data.lastAy;
