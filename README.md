@@ -74,6 +74,7 @@ Overview of the ESP32-Wroom-DA module:
   3. **Adafruit ADS1X15** bu adafruit;
   4. **ArduinoJson** by Benoit Blanchon;
   5. **U8g2** by oliver;
+  - Remember to install all library dependencies.
 
 - Arduino IDE Settings
 

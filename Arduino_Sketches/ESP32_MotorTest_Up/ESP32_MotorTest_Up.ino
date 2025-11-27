@@ -63,6 +63,7 @@ void setup() {
     wifi_connect_tms += 1;
     delay(200);
   }
+  Serial.println(" ");
   if(WiFi.status() == WL_CONNECTED){
     Serial.println("\nConnected to the Lab WiFi.");
     Serial.print("Local MCU (down) IP: ");
