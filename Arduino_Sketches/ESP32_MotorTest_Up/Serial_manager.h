@@ -22,6 +22,10 @@ String initAllSerials() {
   delay(100);
   Serial2.begin(1000, SERIAL_8E2, SERIAL2_RX, SERIAL2_TX);
   delay(100);
+  if (!Serial || !Serial1 || !Serial2) {
+    return "Serial initializaiton failed.";
+  }
+  return "";
 }
 /////////////////////////////////////
 
@@ -94,35 +98,6 @@ uint8_t calculateCRC8(uint8_t* data, uint8_t length) {
   return crc;
 }
 
-void serial1ResetFrame() {
-  serial1_frame_started = false;
-  serial1_buffer_index = 0;
-}
-
-void serial1DataEvent() {
-  unsigned long now = millis();
-  if (serial1_frame_started && (now - serial1_frame_start_time > 100)) {
-    serial1ResetFrame();
-  }
-  while (Serial1.available()) {
-    uint8_t byte = Serial1.read();
-    if (byte == KISS_FRAME_START) {
-      if (!serial1_frame_started) {
-        serial1_frame_started = true;
-        serial1_buffer_index = 0;
-        serial1_frame_start_time = now;
-      }
-      else {
-        parseSerial1Data();
-        serial1ResetFrame();
-      }
-    }
-    else if (serial1_frame_started && serial1_buffer_index < SERIAL1_BUF_SIZE) {
-      serial1_buffer[serial1_buffer_index++] = byte;
-    }
-  }
-}
-
 void parseSerial1Data() {
   if (serial1_buffer_index < KISS_TELEMETRY_SIZE) {
     return;
@@ -140,6 +115,32 @@ void parseSerial1Data() {
   myEscData.erpm = ((serial1_buffer[7] << 8) | serial1_buffer[8]) * 100;
   myEscData.crc = receivedCRC;
 }
+
+void serial1DataEvent() {
+  unsigned long now = millis();
+  if (serial1_frame_started && (now - serial1_frame_start_time > 100)) {
+    serial1_frame_started = false;
+    serial1_buffer_index = 0;
+  }
+  while (Serial1.available()) {
+    uint8_t byte = Serial1.read();
+    if (byte == KISS_FRAME_START) {
+      if (!serial1_frame_started) {
+        serial1_frame_started = true;
+        serial1_buffer_index = 0;
+        serial1_frame_start_time = now;
+      }
+      else {
+        parseSerial1Data();
+        serial1_frame_started = false;
+        serial1_buffer_index = 0;
+      }
+    }
+    else if (serial1_frame_started && serial1_buffer_index < SERIAL1_BUF_SIZE) {
+      serial1_buffer[serial1_buffer_index++] = byte;
+    }
+  }
+}
 //////////////////////////////////////
 
 ///////////// Serial 2 ///////////////
@@ -155,26 +156,6 @@ uint8_t serial2_buffer[SERIAL2_BUF_SIZE];
 uint8_t serial2_buffer_index = 0;
 uint16_t receiver_channels[16];  // 16 channel readings
 uint8_t flags = 0;  // flag of the SBUS data
-
-void serial2DataEvent() {
-  while (Serial2.available() > 0) {
-    uint8_t c = Serial2.read();
-    if (serial2_buffer_index == 0 && c != SBUS_HEADER) {
-      continue;
-    }
-    serial2_buffer[serial2_buffer_index++] = c;
-    if (serial2_buffer_index == SBUS_FRAME_SIZE) {
-      if (serial2_buffer[24] == SBUS_FOOTER || serial2_buffer[24] == 0x04) {
-        parseSerial2Data();
-      }
-      serial2_buffer_index = 0;
-    }
-    
-    if (serial2_buffer_index >= SBUS_FRAME_SIZE) {
-      serial2_buffer_index = 0;
-    }
-  }
-}
 
 void parseSerial2Data() {
   receiver_channels[0]  = ((serial2_buffer[1]    | serial2_buffer[2]  << 8)                    & 0x07FF);
@@ -194,6 +175,26 @@ void parseSerial2Data() {
   receiver_channels[14] = ((serial2_buffer[20]>>2| serial2_buffer[21] << 6)                    & 0x07FF);
   receiver_channels[15] = ((serial2_buffer[21]>>5| serial2_buffer[22] << 3)                    & 0x07FF);
   flags = serial2_buffer[23];
+}
+
+void serial2DataEvent() {
+  while (Serial2.available() > 0) {
+    uint8_t c = Serial2.read();
+    if (serial2_buffer_index == 0 && c != SBUS_HEADER) {
+      continue;
+    }
+    serial2_buffer[serial2_buffer_index++] = c;
+    if (serial2_buffer_index == SBUS_FRAME_SIZE) {
+      if (serial2_buffer[24] == SBUS_FOOTER || serial2_buffer[24] == 0x04) {
+        parseSerial2Data();
+      }
+      serial2_buffer_index = 0;
+    }
+    
+    if (serial2_buffer_index >= SBUS_FRAME_SIZE) {
+      serial2_buffer_index = 0;
+    }
+  }
 }
 
 String parseSbusFlag() {

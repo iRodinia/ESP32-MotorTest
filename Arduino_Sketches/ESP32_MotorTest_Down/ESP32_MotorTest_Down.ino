@@ -10,11 +10,13 @@
 #include "IMU_GY85_manager.h"
 #include "helper_functions_down.h"
 
+#define SERIAL2_TX 25
+#define SERIAL2_RX 4
+
 const char* wifi_ssid = "BioInBot_Lab";
 const char* wifi_pswd = "11223344";
 String udpAddress = "192.168.31.240";  // receiver IP
 int udpPort = 8888;  // receiver port
-hw_timer_t *timer = NULL;  // OLED refresh timer
 
 MCU_Down_Data myData;
 bool start_log = false;  // data sending status
@@ -22,10 +24,8 @@ bool start_wifi_broadcast = false;  // wifi data sending status
 bool start_serial_echo = false;  // print data on Serial 1
 
 uint32_t startRecordLT = 0;  // start recording local time
-uint32_t lastDataUpdate = 0;
 uint32_t lastDataRecord = 0;
-uint32_t lastSensorFastUpdate = 0;
-uint32_t lastSensorSlowUpdate = 0;
+uint32_t lastSensorUpdate = 0;
 String log_headline = "LocalTime,AccelerationX,AccelerationY,AccelerationZ,GyroscopeX,GyroscopeY,GyroscopeZ,MagnetX,MagnetY,MagnetZ";
 
 char serial_cmd[64];  // store the received cmd from main serial
@@ -37,7 +37,6 @@ WiFiUDP udp;
 InfoDisplayDown myScreen;  // scl-33, sda-32
 MyIMU_GY85 mySensor;  // scl-22, sda-21
 SDCard mySd(18, 23, 19, 5);  //miso = 23, mosi = 19, wrong wiring...
-// Serial2: Rx-4, Tx-25
 
 void onSerialCmdEvent() {
   while (Serial.available()) {
@@ -100,16 +99,10 @@ void sendData() {
       udp.endPacket();
     }
   }
-}
-
-void recordData() {
   if (start_log) {
-    char resultStr[250];
-    convert_data_to_string(myData, resultStr);
     mySd.logMessage(resultStr);  // resultStr do not include '\n'
   }
 }
-
 
 void setup(){
   Serial.begin(115200);  // usb
@@ -147,36 +140,27 @@ void setup(){
   delay(50);
 
   Serial.println("##### All modules initialized #####");
-  Serial2.begin(115200, SERIAL_8N1, 4, 25);
+  Serial2.begin(115200, SERIAL_8N1, SERIAL2_RX, SERIAL2_TX);
   startRecordLT = millis();
 }
-
 
 void loop(){
   onSerialCmdEvent();
   onSerial2CmdEvent();
   uint32_t current_time = millis();
 
-  if(current_time - lastDataRecord > 209) {
+  if(current_time - lastDataRecord > 100) {
     lastDataRecord = current_time;
     recordData();
   }
 
-  if(current_time - lastDataUpdate > 103) {
-    lastDataUpdate = current_time;
-    sendData();
-  }
-
-  if(current_time - lastSensorSlowUpdate > 97) {
-    lastSensorSlowUpdate = current_time;
+  if(current_time - lastSensorUpdate > 97) {
+    lastSensorUpdate = current_time;
     float _mx, _my, _mz;
     mySensor.readMagnetRaw(_mx, _my, _mz);
     myData.lastMx = _mx; myData.lastMy = -_my; myData.lastMz = -_mz;
     mySensor.readTemperatureRaw(myData.lastTmp);
-  }
 
-  if(current_time - lastSensorFastUpdate > 51) {
-    lastSensorFastUpdate = current_time;
     float _ax, _ay, _az, _gx, _gy, _gz;
     mySensor.readAccelerationRaw(_ax, _ay, _az);
     myData.lastAx = _ax; myData.lastAy = -_ay; myData.lastAz = -_az;
@@ -193,6 +177,8 @@ void loop(){
   myData.lcaT = (millis() - startRecordLT) / 1000.0f;
   myScreen.updateInfo(myData);
   myScreen.refresh();
+
+  delay(1);
 }
 
 void parse_serial_cmd(String command) {

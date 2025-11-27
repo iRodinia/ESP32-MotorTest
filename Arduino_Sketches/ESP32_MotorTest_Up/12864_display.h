@@ -50,10 +50,10 @@ void InfoDisplayUp::updateInfo(MCU_Up_Data data){
     line1 = line1.substring(0, 18);
   }
   _line1 = line1;
-  _line2 = "cur:"+String(myData.lastCur,2)+","+"vol:"+String(myData.lastVol,2);
-  _line3 = "pwr:"+String(myData.lastPwr,2)+","+"thr:"+String(myData.lastThr,2);
-  _line4 = "rpm:"+String(myData.lastRpm,2)+","+"cmd:"+String(myData.lastCmd,2);
-  _line5 = "ESCtmp:"+String(myData.lastEscTmp,2);
+  _line2 = "cur:"+String(data.lastCur,2)+","+"vol:"+String(data.lastVol,2);
+  _line3 = "pwr:"+String(data.lastPwr,2)+","+"thr:"+String(data.lastThr,2);
+  _line4 = "rpm:"+String(data.lastRpm,2)+","+"cmd:"+String(data.lastCmd,2);
+  _line5 = "ESCtmp:"+String(data.lastEscTmp,2);
 }
 
 void InfoDisplayUp::setCheckbox(bool flag){
