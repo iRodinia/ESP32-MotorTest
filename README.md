@@ -49,9 +49,11 @@ Overview of the ESP32-Wroom-DA module:
 
 ![ESP32WROOMDA_pins](.\\README_resources\\ESP32WROOMDA_pins.png "Picture of the ESP32 Pins assignments")
 
+  The pins assignment here is not always necessary (or correct), because ESP32 allows the user to automatically assign most of its pins for different usage. But the number of Hardware I2C / UART / SPI is fixed.
+
 - Devices Connection (Down)
 
-  1. **SD Card Reader**: CS-5, SCK-18, MOSI-19, MISO-23
+  1. **SD Card Reader**: CS-5, SCK-18, MOSI-23, MISO-19
   2. **OLED Screen**: SCL-33, SDA-32
   3. **GY-85 IMU**: SCL-22, SDA-21
   4. **Serial 2**: Rx-4, Tx-25
@@ -61,18 +63,17 @@ Overview of the ESP32-Wroom-DA module:
   1. **SD Card Reader**: CS-5, SCK-18, MOSI-23, MISO-19
   2. **ADS1115 ADC**: SCL-22, SDA-21, use port A0 to measure power module voltage reading, A1 to measure current reading (in unipolar mode), A2-A3 to measure force (in bipolar mode), A2+/A3-
   3. **OLED Screen**: SCL-33, SDA-32
-  4. **Serial 2**: Rx-4, Tx-25
-  5. **ESC Telemetry**: Tx (of ESC)-26, also the Serial1 Rx pin of MCU
-  6. **X8R Receiver PWM**: pwm-27, use as input
+  4. **ESC Telemetry**: Tx(of ESC)-26, set as the Serial1 Rx pin of MCU
+  5. **X8R Receiver SBUS/UART**: Tx(of SBUS/UART board)-27, set as the Serial2 Rx pin of MCU
+  - Warning: GPIO14 and GPIO25 are also occupied due to the usage of Serial1 and Serial2
 
 - Arduino Libraries Needed
   
   1. **SD** by Arduino;
-  2. **NTPClient** by Fabrice Weinberg; **Time** by Michael Margolis;
-  3. **Adafruit ADXL345** by Adafruit; **Adafruit HMC5883 Unified** by Adafruit; **Grove 3-Axis Digital Gyro** by Seeed Studio;
-  4. **Adafruit ADS1X15** bu adafruit;
-  5. **ArduinoJson** by Benoit Blanchon;
-  6. **U8g2** by oliver;
+  2. **Adafruit ADXL345** by Adafruit; **Adafruit HMC5883 Unified** by Adafruit; **Grove 3-Axis Digital Gyro** by Seeed Studio;
+  3. **Adafruit ADS1X15** bu adafruit;
+  4. **ArduinoJson** by Benoit Blanchon;
+  5. **U8g2** by oliver;
 
 - Arduino IDE Settings
 
