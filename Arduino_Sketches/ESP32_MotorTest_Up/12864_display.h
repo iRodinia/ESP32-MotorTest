@@ -52,7 +52,7 @@ void InfoDisplayUp::updateInfo(MCU_Up_Data data){
   _line1 = line1;
   _line2 = "I:"+String(data.lastCur,2)+","+"V:"+String(data.lastVol,2);
   _line3 = "P:"+String(data.lastPwr,2)+","+"F:"+String(data.lastThr,2);
-  _line4 = "rpm:"+String(data.lastRpm,2)+","+"cmd:"+String(data.lastCmd,2);
+  _line4 = "rpm:"+String(data.lastRpm,2)+","+"cmd:"+String(data.lastCmd*100,1);
   _line5 = "ESCtmp:"+String(data.lastEscTmp,2);
 }
 

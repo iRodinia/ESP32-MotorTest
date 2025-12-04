@@ -20,7 +20,7 @@ String initAllSerials() {
   delay(100);
   Serial1.begin(115200, SERIAL_8N1, SERIAL1_RX, SERIAL1_TX);
   delay(100);
-  Serial2.begin(1000, SERIAL_8E2, SERIAL2_RX, SERIAL2_TX);
+  Serial2.begin(100000, SERIAL_8E2, SERIAL2_RX, SERIAL2_TX);
   delay(100);
   if (!Serial || !Serial1 || !Serial2) {
     return "Serial initializaiton failed.";

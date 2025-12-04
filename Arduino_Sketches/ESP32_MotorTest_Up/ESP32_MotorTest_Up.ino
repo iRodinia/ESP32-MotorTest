@@ -104,8 +104,8 @@ void loop() {
 
     myData.lastRpm = myEscData.erpm / MOTOR_POLE_PAIR;
     myData.lastEscTmp = myEscData.temperature;
-    myData.lastCmd = (receiver_channels[2] - CMD_MIN) / (CMD_MAX - CMD_MIN);  // throttle channel is No.3, which is channel[2]
-  }
+    myData.lastCmd = (float(receiver_channels[2]) - CMD_MIN) / (CMD_MAX - CMD_MIN);  // throttle channel is No.3, which is channel[2]
+}
 
   /*if(WiFi.status() == WL_CONNECTED) {
     myScreen.setCheckbox(true);
