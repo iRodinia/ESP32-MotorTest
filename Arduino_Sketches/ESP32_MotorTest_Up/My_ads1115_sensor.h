@@ -14,21 +14,19 @@ private:
     Adafruit_ADS1115 ads;
 
     const uint8_t MODULE_ADDRESS = 0x48;
-    const float VOLTAGE_MULTIPLIER = 18.182;
-    const float CURRENT_MULTIPLIER = 36.364;
+    const float VOLTAGE_MULTIPLIER = 0.003409125;  // 18.182 * 0.0001875
+    const float CURRENT_MULTIPLIER = 0.00681825;  // 36.364 * 0.0001875
     const float FORCE_VOLT_LIMIT = 3.3;
 
-    float readPM02VoltRaw() {
-        int16_t adc = ads.readADC_SingleEnded(0);  // channel: 0-3, raw adc reading, maximum 65536
-        return ads.computeVolts(adc);
+    int16_t readPM02VoltRaw() {
+        return ads.readADC_SingleEnded(0);  // channel: 0-3, raw adc reading, maximum 65536
     }
-    float readPM02CurrRaw() {
-        int16_t adc = ads.readADC_SingleEnded(1);
-        return ads.computeVolts(adc);
+    int16_t readPM02CurrRaw() {
+        return ads.readADC_SingleEnded(1);
     }
     float readForceVoltRaw() {
         int16_t adc = ads.readADC_Differential_2_3();
-        return ads.computeVolts(adc);
+        return adc * 0.0001875;
     }
 
     bool _initialized;
@@ -86,7 +84,10 @@ void MyADS1115Sensor::readPower(float &voltage, float &current, float &power) {
         power = 0.0;
     }
     voltage = readPM02VoltRaw() * VOLTAGE_MULTIPLIER;
-    current = readPM02CurrRaw() * CURRENT_MULTIPLIER;
+    int16_t cur_raw = readPM02CurrRaw() + 20;  // 20 for 0A fix
+    current = cur_raw * CURRENT_MULTIPLIER;
+    if (voltage < 0) voltage = 0;
+    if (current < 0) current = 0;
     power = voltage * current;
 }
 

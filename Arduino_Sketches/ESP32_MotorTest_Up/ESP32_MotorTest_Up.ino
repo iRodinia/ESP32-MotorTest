@@ -92,12 +92,12 @@ void loop() {
   serial2DataEvent();
   uint32_t current_time = millis();
 
-  if(current_time - lastDataRecord > 100) {
+  if(current_time - lastDataRecord > 250) {
     lastDataRecord = current_time;
     sendData();
   }
 
-  if(current_time - lastSensorUpdate > 97) {
+  if(current_time - lastSensorUpdate > 127) {
     lastSensorUpdate = current_time;
     myADC.readPower(myData.lastVol, myData.lastCur, myData.lastPwr);
     myADC.readForce(myData.lastThr);
@@ -107,12 +107,13 @@ void loop() {
     myData.lastCmd = (receiver_channels[2] - CMD_MIN) / (CMD_MAX - CMD_MIN);  // throttle channel is No.3, which is channel[2]
   }
 
-  if(WiFi.status() == WL_CONNECTED) {
+  /*if(WiFi.status() == WL_CONNECTED) {
     myScreen.setCheckbox(true);
   }
   else {
     myScreen.setCheckbox(false);
   }
+  */
   myData.lcaT = (millis() - start_record_lt) / 1000.0f;
   myScreen.updateInfo(myData);
   myScreen.refresh();
