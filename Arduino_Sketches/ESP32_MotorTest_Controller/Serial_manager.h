@@ -32,14 +32,10 @@ void serial0CmdEvent() {
 #define SERIAL1_TX 25
 #define SERIAL1_BUF_SIZE 16
 
-static const uint8_t KISS_FRAME_START = 0xC0;
-static const uint8_t KISS_FRAME_END = 0xC0;
 static const uint8_t KISS_TELEMETRY_SIZE = 10;
-
-uint8_t serial1_buffer[SERIAL1_BUF_SIZE];
+uint8_t serial1_buffer[SERIAL1_BUF_SIZE] = {0};
 uint8_t serial1_buffer_index = 0;
-bool serial1_frame_started = false;
-unsigned long serial1_frame_start_time = 0;
+bool serial1_frame_synced = false;
 
 // BLHeli32 KISS structure
 struct EscTelemetryData {
@@ -68,46 +64,47 @@ uint8_t calculateCRC8(uint8_t* data, uint8_t length) {
   return crc;
 }
 
-void parseSerial1Data() {
-  if (serial1_buffer_index < KISS_TELEMETRY_SIZE) {
-    return;
-  }
+bool parseSerial1Data() {
   uint8_t receivedCRC = serial1_buffer[KISS_TELEMETRY_SIZE - 1];
   uint8_t calculatedCRC = calculateCRC8(serial1_buffer, KISS_TELEMETRY_SIZE - 1);
   if (receivedCRC != calculatedCRC) {
-    return;
+    Serial.println("Error: 1");
+    return false;
   }
 
-  myEscData.temperature = serial1_buffer[0];
-  myEscData.voltage = ((serial1_buffer[1] << 8) | serial1_buffer[2]) / 100.0;
-  myEscData.current = ((serial1_buffer[3] << 8) | serial1_buffer[4]) / 100.0;
-  myEscData.consumption = (serial1_buffer[5] << 8) | serial1_buffer[6];
-  myEscData.erpm = ((serial1_buffer[7] << 8) | serial1_buffer[8]) * 100;
+  float temperature = serial1_buffer[0];
+  float voltage = int16_t((serial1_buffer[1] << 8) | serial1_buffer[2]) / 100.0;
+  float current = int16_t((serial1_buffer[3] << 8) | serial1_buffer[4]) / 100.0;
+  if (temperature >= 150 || temperature < 0 || 
+      voltage >= 60 || voltage < 0 || 
+      current >= 200 || current < 0) {
+        Serial.println("Error: 2");
+    return false;
+  }
+
+  myEscData.temperature = temperature;
+  myEscData.voltage = voltage;
+  myEscData.current = current;
+  myEscData.consumption = int16_t((serial1_buffer[5] << 8) | serial1_buffer[6]);
+  myEscData.erpm = int16_t((serial1_buffer[7] << 8) | serial1_buffer[8]) * 100;
   myEscData.crc = receivedCRC;
+  return true;
 }
 
 void serial1DataEvent() {
-  unsigned long now = millis();
-  if (serial1_frame_started && (now - serial1_frame_start_time > 100)) {
-    serial1_frame_started = false;
-    serial1_buffer_index = 0;
-  }
   while (Serial1.available()) {
     uint8_t byte = Serial1.read();
-    if (byte == KISS_FRAME_START) {
-      if (!serial1_frame_started) {
-        serial1_frame_started = true;
-        serial1_buffer_index = 0;
-        serial1_frame_start_time = now;
-      }
-      else {
-        parseSerial1Data();
-        serial1_frame_started = false;
-        serial1_buffer_index = 0;
-      }
-    }
-    else if (serial1_frame_started && serial1_buffer_index < SERIAL1_BUF_SIZE) {
+    if (serial1_buffer_index < KISS_TELEMETRY_SIZE) {
       serial1_buffer[serial1_buffer_index++] = byte;
+    }
+    else {
+      for (uint8_t i = 0; i < KISS_TELEMETRY_SIZE-1; i++) {
+        serial1_buffer[i] = serial1_buffer[i+1];
+      }
+      serial1_buffer[KISS_TELEMETRY_SIZE-1] = byte;
+      if (parseSerial1Data()) {
+        serial1_buffer_index = 0;
+      }
     }
   }
 }
