@@ -34,8 +34,6 @@ void serial0CmdEvent() {
 
 static const uint8_t KISS_TELEMETRY_SIZE = 10;
 uint8_t serial1_buffer[SERIAL1_BUF_SIZE] = {0};
-uint8_t serial1_buffer_index = 0;
-bool serial1_frame_synced = false;
 
 // BLHeli32 KISS structure
 struct EscTelemetryData {
@@ -68,7 +66,6 @@ bool parseSerial1Data() {
   uint8_t receivedCRC = serial1_buffer[KISS_TELEMETRY_SIZE - 1];
   uint8_t calculatedCRC = calculateCRC8(serial1_buffer, KISS_TELEMETRY_SIZE - 1);
   if (receivedCRC != calculatedCRC) {
-    Serial.println("Error: 1");
     return false;
   }
 
@@ -94,17 +91,10 @@ bool parseSerial1Data() {
 void serial1DataEvent() {
   while (Serial1.available()) {
     uint8_t byte = Serial1.read();
-    if (serial1_buffer_index < KISS_TELEMETRY_SIZE) {
-      serial1_buffer[serial1_buffer_index++] = byte;
+    for (uint8_t i = 0; i < KISS_TELEMETRY_SIZE-1; i++) {
+      serial1_buffer[i] = serial1_buffer[i+1];
     }
-    else {
-      for (uint8_t i = 0; i < KISS_TELEMETRY_SIZE-1; i++) {
-        serial1_buffer[i] = serial1_buffer[i+1];
-      }
-      serial1_buffer[KISS_TELEMETRY_SIZE-1] = byte;
-      if (parseSerial1Data()) {
-        serial1_buffer_index = 0;
-      }
-    }
+    serial1_buffer[KISS_TELEMETRY_SIZE-1] = byte;
+    parseSerial1Data();
   }
 }
