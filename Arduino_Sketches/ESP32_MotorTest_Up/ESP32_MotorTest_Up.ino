@@ -34,7 +34,7 @@ MyADS1115Sensor myADC;
 void sendData() {
   char resultStr[300];
   convert_data_to_string(myData, resultStr);
-  Serial.printf("%s\n", resultStr);
+  // Serial.printf("%s\n", resultStr);
 
   if (start_wifi_broadcast) {
     if (WiFi.status() == WL_CONNECTED){

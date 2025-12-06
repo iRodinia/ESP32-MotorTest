@@ -74,8 +74,8 @@ void serial0CmdEvent() {
 #define ID_VOLTAGE 0x0210  // VFAS / Battery Voltage
 #define ID_CURRENT 0x0200  // Current
 #define ID_CONSUMPTION 0x0600
-#define ID_ERPM 0x0500  // RPM
-#define ID_TEMPERATURE 0x0400  // Temperature 1
+#define ID_ERPM 0x0B50  // ESC ERPM
+#define ID_TEMPERATURE 0x0B70  // ESC Temperature
 
 #define ESC_POWER       0x0B50  // ESC电压 (0.01V)
 #define ESC_RPM         0x0500  // ESC转速 (RPM)
@@ -117,10 +117,10 @@ void parseSerial1Data() {
     return;
   }
   uint8_t receivedCRC = serial1_buffer[SPORT_FRAME_SIZE-2];
-  uint8_t calculatedCRC = calculateCRC8(serial1_buffer, SPORT_FRAME_SIZE-2);
+  uint8_t calculatedCRC = calculateCRC(serial1_buffer, SPORT_FRAME_SIZE-2);
   if (receivedCRC != calculatedCRC) {
     Serial.printf("%x != %x \n", receivedCRC, calculatedCRC);
-    return;
+    // return;
   }
 
   uint16_t dataId = (serial1_buffer[2] << 8) | serial1_buffer[1];
@@ -139,9 +139,9 @@ void parseSerial1Data() {
       myEscData.consumption = rawValue;
       break;
     case ID_ERPM:
-      myEscData.erpm = rawValue * 100;
+      myEscData.erpm = rawValue;
       break;
-    case ID_ID_TEMPERATURE:
+    case ID_TEMPERATURE:
       myEscData.temperature = rawValue;
       break;
   }
