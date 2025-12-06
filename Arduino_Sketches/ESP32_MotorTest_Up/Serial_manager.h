@@ -64,24 +64,12 @@ void serial0CmdEvent() {
 #define DATA_FRAME_HEADER 0x10
 #define DATA_FRAME_END 0x7E
 
-#define ESC_POWER_FIRST_ID        0x0B50
-#define ESC_POWER_LAST_ID         0x0B5F
-#define ESC_RPM_CONS_FIRST_ID     0x0B60
-#define ESC_RPM_CONS_LAST_ID      0x0B6F
-#define ESC_TEMPERATURE_FIRST_ID  0x0B70
-#define ESC_TEMPERATURE_LAST_ID   0x0B7F
-
-#define ID_VOLTAGE 0x0210  // VFAS / Battery Voltage
-#define ID_CURRENT 0x0200  // Current
-#define ID_CONSUMPTION 0x0600
-#define ID_ERPM 0x0B50  // ESC ERPM
-#define ID_TEMPERATURE 0x0B70  // ESC Temperature
-
-#define ESC_POWER       0x0B50  // ESC电压 (0.01V)
-#define ESC_RPM         0x0500  // ESC转速 (RPM)
-#define ESC_CONSUMPTION 0x0600  // ESC消耗电量 (mAh)
-#define ESC_TEMP        0x0B70  // ESC温度 (°C)
-#define ESC_CURRENT     0x0B60  // ESC电流 (0.1A)
+#define ID_POWER_LO 0x0B50  // ESC power
+#define ID_POWER_HI 0x0B5F
+#define ID_ERPM_LO 0x0B60  // ESC ERPM
+#define ID_ERPM_HI 0x0B6F
+#define ID_TEMPERATURE_LO 0x0B70  // ESC Temperature
+#define ID_TEMPERATURE_HI 0x0B7F
 
 uint8_t serial1_buffer[SPORT_FRAME_SIZE+1];
 uint8_t serial1_buffer_index = 0;
@@ -96,20 +84,26 @@ struct SPortTelemetryData {
 
 SPortTelemetryData myEscData;
 
-uint16_t calculateCRC(uint8_t* data, uint8_t length) {
+uint16_t calculateCRC8(uint8_t* data, uint8_t length) {
   uint16_t crc = 0;
   for (uint8_t i = 0; i < length; i++) {
-    crc += data[i];
-    crc += crc >> 8;
-    crc &= 0x0FF;
+    crc ^= data[i];
+    for (uint8_t j = 0; j < 8; j++) {
+      if (crc & 0x80) {
+        crc = (crc << 1) ^ 0x07;
+      }
+      else {
+        crc = crc << 1;
+      }
+    }
   }
-  return crc;  // return (crc == 0x00ff);
+  return crc;
 }
 
 void parseSerial1Data() {
-  Serial.printf("%x %x %x %x %x %x %x %x %x \n", serial1_buffer[0], serial1_buffer[1], serial1_buffer[2],
-    serial1_buffer[3], serial1_buffer[4], serial1_buffer[5], serial1_buffer[6], serial1_buffer[7],
-    serial1_buffer[8]);
+  // Serial.printf("%x %x %x %x %x %x %x %x %x \n", serial1_buffer[0], serial1_buffer[1], serial1_buffer[2],
+  //   serial1_buffer[3], serial1_buffer[4], serial1_buffer[5], serial1_buffer[6], serial1_buffer[7],
+  //   serial1_buffer[8]);
 
   if (serial1_buffer_index < SPORT_FRAME_SIZE || 
       serial1_buffer[0] != DATA_FRAME_HEADER || 
@@ -117,33 +111,24 @@ void parseSerial1Data() {
     return;
   }
   uint8_t receivedCRC = serial1_buffer[SPORT_FRAME_SIZE-2];
-  uint8_t calculatedCRC = calculateCRC(serial1_buffer, SPORT_FRAME_SIZE-2);
+  uint8_t calculatedCRC = calculateCRC8(serial1_buffer, SPORT_FRAME_SIZE-2);
   if (receivedCRC != calculatedCRC) {
-    Serial.printf("%x != %x \n", receivedCRC, calculatedCRC);
-    // return;
+    // Serial.printf("%x != %x \n", receivedCRC, calculatedCRC);
+    return;
   }
 
   uint16_t dataId = (serial1_buffer[2] << 8) | serial1_buffer[1];
   uint32_t rawValue = (serial1_buffer[6] << 24) | (serial1_buffer[5] << 16) | (serial1_buffer[4] << 8) | serial1_buffer[3];
 
-  Serial.printf("Id: %x, Value: %d \n", dataId, rawValue);
-
-  switch (dataId) {
-    case ID_VOLTAGE:
-      myEscData.voltage = rawValue / 100.0;
-      break;
-    case ID_CURRENT:
-      myEscData.current = rawValue / 10.0;
-      break;
-    case ID_CONSUMPTION:
-      myEscData.consumption = rawValue;
-      break;
-    case ID_ERPM:
-      myEscData.erpm = rawValue;
-      break;
-    case ID_TEMPERATURE:
-      myEscData.temperature = rawValue;
-      break;
+  if (dataId >= ID_POWER_LO && dataId <= ID_POWER_HI) {
+    myEscData.voltage = (rawValue & 0xFFFF) / 100.0;
+    myEscData.current = ((rawValue >> 16) & 0xFFFF) / 10.0;
+  }
+  else if (dataId >= ID_ERPM_LO && dataId <= ID_ERPM_HI) {
+    myEscData.erpm = (rawValue & 0xFFFF) * 100;
+  }
+  else if (dataId >= ID_TEMPERATURE_LO && dataId <= ID_TEMPERATURE_HI) {
+    myEscData.temperature = rawValue;
   }
 }
 
