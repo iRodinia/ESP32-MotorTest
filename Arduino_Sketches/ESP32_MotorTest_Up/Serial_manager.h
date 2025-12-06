@@ -18,7 +18,7 @@
 String initAllSerials() {
   Serial.begin(115200);
   delay(100);
-  Serial1.begin(115200, SERIAL_8N1, SERIAL1_RX, SERIAL1_TX);
+  Serial1.begin(57600, SERIAL_8N1, SERIAL1_RX, SERIAL1_TX, true);
   delay(100);
   Serial2.begin(100000, SERIAL_8E2, SERIAL2_RX, SERIAL2_TX);
   delay(100);
@@ -60,84 +60,104 @@ void serial0CmdEvent() {
 /////////////////////////////////////
 
 //////////// Serial 1 ///////////////
-#define SERIAL1_BUF_SIZE 16
+#define SPORT_FRAME_SIZE 9  // S.Port reveive data format: frameId 0x10 + 2 byte data Id + 4 byte data + CRC + 0x7E
+#define DATA_FRAME_HEADER 0x10
+#define DATA_FRAME_END 0x7E
 
-static const uint8_t KISS_FRAME_START = 0xC0;
-static const uint8_t KISS_FRAME_END = 0xC0;
-static const uint8_t KISS_TELEMETRY_SIZE = 10;
+#define ESC_POWER_FIRST_ID        0x0B50
+#define ESC_POWER_LAST_ID         0x0B5F
+#define ESC_RPM_CONS_FIRST_ID     0x0B60
+#define ESC_RPM_CONS_LAST_ID      0x0B6F
+#define ESC_TEMPERATURE_FIRST_ID  0x0B70
+#define ESC_TEMPERATURE_LAST_ID   0x0B7F
 
-uint8_t serial1_buffer[SERIAL1_BUF_SIZE];
+#define ID_VOLTAGE 0x0210  // VFAS / Battery Voltage
+#define ID_CURRENT 0x0200  // Current
+#define ID_CONSUMPTION 0x0600
+#define ID_ERPM 0x0500  // RPM
+#define ID_TEMPERATURE 0x0400  // Temperature 1
+
+#define ESC_POWER       0x0B50  // ESC电压 (0.01V)
+#define ESC_RPM         0x0500  // ESC转速 (RPM)
+#define ESC_CONSUMPTION 0x0600  // ESC消耗电量 (mAh)
+#define ESC_TEMP        0x0B70  // ESC温度 (°C)
+#define ESC_CURRENT     0x0B60  // ESC电流 (0.1A)
+
+uint8_t serial1_buffer[SPORT_FRAME_SIZE+1];
 uint8_t serial1_buffer_index = 0;
-bool serial1_frame_started = false;
-unsigned long serial1_frame_start_time = 0;
 
-// BLHeli32 KISS structure
-struct EscTelemetryData {
+struct SPortTelemetryData {
   float temperature = 0;  // temperature (C)
   float voltage = 0;  // voltage (V)
   float current = 0;  // current (A)
-  float consumption = 0;  // power cosumption (mAh)
+  uint32_t consumption = 0;  // power cosumption (mAh)
   uint16_t erpm = 0;  // electric rpm (ERPM)
-  uint8_t crc = 0;  // CRC test
 };
 
-EscTelemetryData myEscData;
+SPortTelemetryData myEscData;
 
-uint8_t calculateCRC8(uint8_t* data, uint8_t length) {
-  uint8_t crc = 0;
+uint16_t calculateCRC(uint8_t* data, uint8_t length) {
+  uint16_t crc = 0;
   for (uint8_t i = 0; i < length; i++) {
-    crc ^= data[i];
-    for (uint8_t j = 0; j < 8; j++) {
-      if (crc & 0x80) {
-        crc = (crc << 1) ^ 0xD5;
-      } else {
-        crc <<= 1;
-      }
-    }
+    crc += data[i];
+    crc += crc >> 8;
+    crc &= 0x0FF;
   }
-  return crc;
+  return crc;  // return (crc == 0x00ff);
 }
 
 void parseSerial1Data() {
-  if (serial1_buffer_index < KISS_TELEMETRY_SIZE) {
+  Serial.printf("%x %x %x %x %x %x %x %x %x \n", serial1_buffer[0], serial1_buffer[1], serial1_buffer[2],
+    serial1_buffer[3], serial1_buffer[4], serial1_buffer[5], serial1_buffer[6], serial1_buffer[7],
+    serial1_buffer[8]);
+
+  if (serial1_buffer_index < SPORT_FRAME_SIZE || 
+      serial1_buffer[0] != DATA_FRAME_HEADER || 
+      serial1_buffer[SPORT_FRAME_SIZE-1] != DATA_FRAME_END) {
     return;
   }
-  uint8_t receivedCRC = serial1_buffer[KISS_TELEMETRY_SIZE - 1];
-  uint8_t calculatedCRC = calculateCRC8(serial1_buffer, KISS_TELEMETRY_SIZE - 1);
+  uint8_t receivedCRC = serial1_buffer[SPORT_FRAME_SIZE-2];
+  uint8_t calculatedCRC = calculateCRC8(serial1_buffer, SPORT_FRAME_SIZE-2);
   if (receivedCRC != calculatedCRC) {
+    Serial.printf("%x != %x \n", receivedCRC, calculatedCRC);
     return;
   }
 
-  myEscData.temperature = serial1_buffer[0];
-  myEscData.voltage = ((serial1_buffer[1] << 8) | serial1_buffer[2]) / 100.0;
-  myEscData.current = ((serial1_buffer[3] << 8) | serial1_buffer[4]) / 100.0;
-  myEscData.consumption = (serial1_buffer[5] << 8) | serial1_buffer[6];
-  myEscData.erpm = ((serial1_buffer[7] << 8) | serial1_buffer[8]) * 100;
-  myEscData.crc = receivedCRC;
+  uint16_t dataId = (serial1_buffer[2] << 8) | serial1_buffer[1];
+  uint32_t rawValue = (serial1_buffer[6] << 24) | (serial1_buffer[5] << 16) | (serial1_buffer[4] << 8) | serial1_buffer[3];
+
+  Serial.printf("Id: %x, Value: %d \n", dataId, rawValue);
+
+  switch (dataId) {
+    case ID_VOLTAGE:
+      myEscData.voltage = rawValue / 100.0;
+      break;
+    case ID_CURRENT:
+      myEscData.current = rawValue / 10.0;
+      break;
+    case ID_CONSUMPTION:
+      myEscData.consumption = rawValue;
+      break;
+    case ID_ERPM:
+      myEscData.erpm = rawValue * 100;
+      break;
+    case ID_ID_TEMPERATURE:
+      myEscData.temperature = rawValue;
+      break;
+  }
 }
 
 void serial1DataEvent() {
-  unsigned long now = millis();
-  if (serial1_frame_started && (now - serial1_frame_start_time > 100)) {
-    serial1_frame_started = false;
-    serial1_buffer_index = 0;
-  }
   while (Serial1.available()) {
     uint8_t byte = Serial1.read();
-    if (byte == KISS_FRAME_START) {
-      if (!serial1_frame_started) {
-        serial1_frame_started = true;
-        serial1_buffer_index = 0;
-        serial1_frame_start_time = now;
-      }
-      else {
+    if (serial1_buffer_index == 0 && byte != DATA_FRAME_HEADER)
+      continue;
+    serial1_buffer[serial1_buffer_index++] = byte;
+    if (serial1_buffer_index >= SPORT_FRAME_SIZE) {
+      if (serial1_buffer[SPORT_FRAME_SIZE-1] == DATA_FRAME_END) {
         parseSerial1Data();
-        serial1_frame_started = false;
-        serial1_buffer_index = 0;
       }
-    }
-    else if (serial1_frame_started && serial1_buffer_index < SERIAL1_BUF_SIZE) {
-      serial1_buffer[serial1_buffer_index++] = byte;
+      serial1_buffer_index = 0;
     }
   }
 }
@@ -184,14 +204,10 @@ void serial2DataEvent() {
       continue;
     }
     serial2_buffer[serial2_buffer_index++] = c;
-    if (serial2_buffer_index == SBUS_FRAME_SIZE) {
-      if (serial2_buffer[24] == SBUS_FOOTER || serial2_buffer[24] == 0x04) {
+    if (serial2_buffer_index >= SBUS_FRAME_SIZE) {
+      if (serial2_buffer[SBUS_FRAME_SIZE-1] == SBUS_FOOTER || serial2_buffer[SBUS_FRAME_SIZE-1] == 0x04) {
         parseSerial2Data();
       }
-      serial2_buffer_index = 0;
-    }
-    
-    if (serial2_buffer_index >= SBUS_FRAME_SIZE) {
       serial2_buffer_index = 0;
     }
   }
