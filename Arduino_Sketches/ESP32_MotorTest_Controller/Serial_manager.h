@@ -30,10 +30,10 @@ void serial0CmdEvent() {
 
 #define SERIAL1_RX 26
 #define SERIAL1_TX 25
-#define SERIAL1_BUF_SIZE 16
+#define KISS_TELEMETRY_SIZE 10
 
-static const uint8_t KISS_TELEMETRY_SIZE = 10;
-uint8_t serial1_buffer[SERIAL1_BUF_SIZE] = {0};
+static uint8_t serial1_buffer[KISS_TELEMETRY_SIZE] = {0};
+uint16_t serial1_buffer_index = 0;
 
 // BLHeli32 KISS structure
 struct EscTelemetryData {
@@ -53,7 +53,7 @@ uint8_t calculateCRC8(uint8_t* data, uint8_t length) {
     crc ^= data[i];
     for (uint8_t j = 0; j < 8; j++) {
       if (crc & 0x80) {
-        crc = (crc << 1) ^ 0xD5;
+        crc = (crc << 1) ^ 0x07;
       } else {
         crc <<= 1;
       }
@@ -75,7 +75,6 @@ bool parseSerial1Data() {
   if (temperature >= 150 || temperature < 0 || 
       voltage >= 60 || voltage < 0 || 
       current >= 200 || current < 0) {
-        Serial.println("Error: 2");
     return false;
   }
 
@@ -91,10 +90,21 @@ bool parseSerial1Data() {
 void serial1DataEvent() {
   while (Serial1.available()) {
     uint8_t byte = Serial1.read();
-    for (uint8_t i = 0; i < KISS_TELEMETRY_SIZE-1; i++) {
-      serial1_buffer[i] = serial1_buffer[i+1];
+    if (serial1_buffer_index < KISS_TELEMETRY_SIZE) {
+      serial1_buffer[serial1_buffer_index] = byte;
+      serial1_buffer_index++;
     }
-    serial1_buffer[KISS_TELEMETRY_SIZE-1] = byte;
-    parseSerial1Data();
+    else {
+      if (parseSerial1Data()) {
+        serial1_buffer[0] = byte;
+        serial1_buffer_index = 1;
+      }
+      else {
+        for (uint8_t i = 0; i < KISS_TELEMETRY_SIZE-1; i++) {
+          serial1_buffer[i] = serial1_buffer[i+1];
+        }
+        serial1_buffer[KISS_TELEMETRY_SIZE-1] = byte;
+      }
+    }
   }
 }
