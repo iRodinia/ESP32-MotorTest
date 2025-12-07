@@ -7,7 +7,7 @@ A Repository for BLDC Test and Data Collection with ESP32 Controller
 
 0. Prepare a Arduino Nano board to serve as the connection interface between PC and ESC:
 
-![arduino-nano-flash-esc](.\\README_resources\\arduino-nano-flash-esc.jpg "Picture of the Arduino Nano")
+![arduino-nano-flash-esc](README_resources/arduino-nano-flash-esc.jpg "Picture of the Arduino Nano")
 
     Pay attention to the port definitions.
 
@@ -17,7 +17,7 @@ A Repository for BLDC Test and Data Collection with ESP32 Controller
 
 2. Program the Arduino to make the interface:
 
-![make_interface](.\\README_resources\\make_interface.png "Picture of the Make interface session")
+![make_interface](README_resources/make_interface.png "Picture of the Make interface session")
 
     Select "Nano w/ATmega328(old bootloader)", then make the 4way-interface. Make sure you have selected the right COM Port at the bottom of this page.
 
@@ -29,13 +29,13 @@ A Repository for BLDC Test and Data Collection with ESP32 Controller
 
 4. Select the interface in the "BLHeliSuit32Test" program:
 
-![select_interface](.\\README_resources\\select_interface.png "Picture of the interface selection")
+![select_interface](README_resources/select_interface.png "Picture of the interface selection")
 
     Choose the interface as "4way-if", then click "Connect". Make sure you have selected the correct COM Port.
 
 5. Read the settings and Adjust:
 
-![read_setup](.\\README_resources\\read_setup.png "Picture of the ESC setup")
+![read_setup](README_resources/read_setup.png "Picture of the ESC setup")
 
     Click "Read Setup" and wait for the configurations to be loaded. Then you can make adjustments and click "Write Setup" to refresh the ESC. The descriptions of these setups can be found at "BLHeli_32_Info->manual.pdf".
 
@@ -47,7 +47,7 @@ A Repository for BLDC Test and Data Collection with ESP32 Controller
 
 Overview of the ESP32-Wroom-DA module:
 
-![ESP32WROOMDA_pins](.\\README_resources\\ESP32WROOMDA_pins.png "Picture of the ESP32 Pins assignments")
+![ESP32WROOMDA_pins](README_resources/ESP32WROOMDA_pins.png "Picture of the ESP32 Pins assignments")
 
   The pins assignment here is not always necessary (or correct), because ESP32 allows the user to automatically assign most of its pins for different usage. But the number of Hardware I2C / UART / SPI is fixed.
 
@@ -78,6 +78,6 @@ Overview of the ESP32-Wroom-DA module:
 
 - Arduino IDE Settings
 
-  ![arduino_ide_settings](.\\README_resources\\arduino_ide_settings.png "Picture of the Arduino IDE settings")
+  ![arduino_ide_settings](README_resources/arduino_ide_settings.png "Picture of the Arduino IDE settings")
 
   
