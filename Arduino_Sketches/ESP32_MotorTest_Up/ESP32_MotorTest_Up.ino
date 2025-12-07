@@ -102,7 +102,7 @@ void loop() {
     myADC.readPower(myData.lastVol, myData.lastCur, myData.lastPwr);
     myADC.readForce(myData.lastThr);
 
-    myData.lastRpm = myEscData.erpm / MOTOR_POLE_PAIR;
+    myData.lastRpm = float(myEscData.erpm) / MOTOR_POLE_PAIR;
     myData.lastEscTmp = myEscData.temperature;
     myData.lastCmd = (float(receiver_channels[2]) - CMD_MIN) / (CMD_MAX - CMD_MIN);  // throttle channel is No.3, which is channel[2]
 }

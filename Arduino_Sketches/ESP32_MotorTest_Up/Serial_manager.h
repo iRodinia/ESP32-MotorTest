@@ -84,20 +84,12 @@ struct SPortTelemetryData {
 
 SPortTelemetryData myEscData;
 
-uint16_t calculateCRC8(uint8_t* data, uint8_t length) {
-  uint16_t crc = 0;
+uint8_t calculateCheckSum(uint8_t* data, uint8_t length) {
+  uint8_t crc = 0;
   for (uint8_t i = 0; i < length; i++) {
-    crc ^= data[i];
-    for (uint8_t j = 0; j < 8; j++) {
-      if (crc & 0x80) {
-        crc = (crc << 1) ^ 0x07;
-      }
-      else {
-        crc = crc << 1;
-      }
-    }
+    crc += data[i];
   }
-  return crc;
+  return 0xFF - crc;
 }
 
 void parseSerial1Data() {
@@ -111,8 +103,8 @@ void parseSerial1Data() {
     return;
   }
   uint8_t receivedCRC = serial1_buffer[SPORT_FRAME_SIZE-2];
-  uint8_t calculatedCRC = calculateCRC8(serial1_buffer, SPORT_FRAME_SIZE-2);
-  if (receivedCRC != calculatedCRC) {
+  uint8_t calculatedCRC = calculateCheckSum(serial1_buffer, SPORT_FRAME_SIZE-2);
+  if (calculatedCRC - receivedCRC > 1) {
     // Serial.printf("%x != %x \n", receivedCRC, calculatedCRC);
     return;
   }
