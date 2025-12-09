@@ -1,0 +1,2 @@
+Software I2C: loop time 514ms
+Hardware I2C: loop time 35ms under fast I2C mode (Wire.setClock(400000))
