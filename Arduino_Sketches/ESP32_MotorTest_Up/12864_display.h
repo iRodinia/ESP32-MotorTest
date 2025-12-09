@@ -4,13 +4,14 @@
 // Using U8g2 library for display control
 
 #include <Arduino.h>
+#include <Wire.h>
 #include <U8g2lib.h>
 
 #include "helper_functions_up.h"
 
 class InfoDisplayUp {
 public:
-  InfoDisplayUp(uint8_t scl=33, uint8_t sda=32);
+  InfoDisplayUp();
   String init();  // init the display
   void clear(void);  // clear display
   void refresh(void);  // upload the buffer to OLED
@@ -18,14 +19,14 @@ public:
   void setCheckbox(bool flag);
 
 private:
-  U8G2_SSD1306_128X64_NONAME_F_SW_I2C u8g2;
+  U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2;
   String _line1, _line2, _line3, _line4, _line5;
   bool _checkbox;
   
 };
 
-InfoDisplayUp::InfoDisplayUp(uint8_t scl, uint8_t sda)
-  : u8g2(U8G2_R0, scl, sda, U8X8_PIN_NONE)
+InfoDisplayUp::InfoDisplayUp()
+  : u8g2(U8G2_R0, U8X8_PIN_NONE, 22, 21)
 {
   _line1 = "00.00";
   _line2 = " ";

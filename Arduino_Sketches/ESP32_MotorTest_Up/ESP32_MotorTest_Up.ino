@@ -1,6 +1,6 @@
 //ESP32-WROOM-DA multi-sensor and data transmission system
-
 #include <Arduino.h>
+#include <Wire.h>
 
 #include "helper_functions_up.h"
 #include "12864_display.h"
@@ -37,6 +37,10 @@ void setup() {
   init_message += initAllSerials();
   Serial.println("\n===== ESP32 Motor Test MCU (Up) Initializing =====");
 
+  Wire.begin();
+  delay(50);
+  Wire.setClock(400000);  // fast mode
+
   init_message += myScreen.init();
   init_message += mySd.init(log_headline);
   init_message += myADC.init();
@@ -59,7 +63,7 @@ void loop() {
   serial2DataEvent();
   uint32_t current_time = millis();
 
-  if(current_time - lastDataRecord > 200) {
+  if(current_time - lastDataRecord > 100) {
     lastDataRecord = current_time;
     sendData();
   }
@@ -74,7 +78,7 @@ void loop() {
     myData.lastCmd = (float(receiver_channels[2]) - CMD_MIN) / (CMD_MAX - CMD_MIN);  // throttle channel is No.3, which is channel[2]
   }
 
-  if(current_time - lastScreenRefresh > 500) {
+  if(current_time - lastScreenRefresh > 150) {
     lastScreenRefresh = current_time;
     myData.lcaT = (millis() - start_record_lt) / 1000.0f;
     myScreen.updateInfo(myData);
