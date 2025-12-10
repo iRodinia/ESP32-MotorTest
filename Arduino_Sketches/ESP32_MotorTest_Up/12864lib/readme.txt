@@ -1,0 +1,1 @@
+hardware 12864OLED will not work if I2C is also connected with other devices!

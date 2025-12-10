@@ -6,9 +6,6 @@
 #include <SD.h>
 #include <SPI.h>
 
-#define LED_PIN 2  // LED blink means data recording, LED on means flushing to SD card
-#define LED_TOGGLE() digitalWrite(LED_PIN, digitalRead(LED_PIN) ^ 1)
-
 #define MAX_LINE_NUM 600
 #define MAX_LINE_LEN 120
 
@@ -85,7 +82,6 @@ int SDCard::logMessage(char* message){
 
   int char_num = sprintf(_log_buffer+_log_current_pos, "%s\n", message);
   _log_current_pos += char_num;
-  LED_TOGGLE();
   return 0;
 }
 
@@ -93,8 +89,6 @@ int SDCard::flushToCard(){
   if(_log_current_pos == 0){
     return 0;
   }
-
-  digitalWrite(LED_PIN, HIGH);
 
   File myfile = SD.open(currentFileName, FILE_APPEND);
   if (!myfile) {
@@ -105,7 +99,6 @@ int SDCard::flushToCard(){
   myfile.close();
 
   _log_current_pos = 0;
-  digitalWrite(LED_PIN, LOW);
   return 0;
 }
 

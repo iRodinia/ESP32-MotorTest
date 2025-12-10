@@ -78,8 +78,7 @@ struct SPortTelemetryData {
   float temperature = 0;  // temperature (C)
   float voltage = 0;  // voltage (V)
   float current = 0;  // current (A)
-  uint32_t consumption = 0;  // power cosumption (mAh)
-  uint16_t erpm = 0;  // electric rpm (ERPM)
+  uint32_t erpm = 0;  // electric rpm (ERPM)
 };
 
 SPortTelemetryData myEscData;
@@ -105,7 +104,6 @@ void parseSerial1Data() {
   uint8_t receivedCRC = serial1_buffer[SPORT_FRAME_SIZE-2];
   uint8_t calculatedCRC = calculateCheckSum(serial1_buffer, SPORT_FRAME_SIZE-2);
   if (calculatedCRC - receivedCRC > 1) {
-    // Serial.printf("%x != %x \n", receivedCRC, calculatedCRC);
     return;
   }
 
@@ -114,10 +112,10 @@ void parseSerial1Data() {
 
   if (dataId >= ID_POWER_LO && dataId <= ID_POWER_HI) {
     myEscData.voltage = (rawValue & 0xFFFF) / 100.0;
-    myEscData.current = ((rawValue >> 16) & 0xFFFF) / 10.0;
+    myEscData.current = ((rawValue >> 16) & 0xFFFF) / 100.0;
   }
   else if (dataId >= ID_ERPM_LO && dataId <= ID_ERPM_HI) {
-    myEscData.erpm = (rawValue & 0xFFFF) * 100;
+    myEscData.erpm = uint32_t(rawValue & 0xFFFF) * 100;
   }
   else if (dataId >= ID_TEMPERATURE_LO && dataId <= ID_TEMPERATURE_HI) {
     myEscData.temperature = rawValue;
