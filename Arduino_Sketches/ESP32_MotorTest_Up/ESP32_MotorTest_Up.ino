@@ -85,6 +85,8 @@ void loop() {
     myData.lastCmd = (float(receiver_channels[2]) - CMD_MIN) / (CMD_MAX - CMD_MIN);  // throttle channel is No.3, which is channel[2]
   }
 
+  myData.lcaT = (millis() - start_record_lt) / 1000.0f;
+
   // if(current_time - lastScreenRefresh > 150) {
   //   lastScreenRefresh = current_time;
   //   myData.lcaT = (millis() - start_record_lt) / 1000.0f;
