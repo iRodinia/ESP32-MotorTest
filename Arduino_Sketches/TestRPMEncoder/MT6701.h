@@ -46,7 +46,7 @@ public:
 	bool initializeSSI( int cs_pin );
 
 	// SPI & I2C functions
-	float angleRead( void );
+	float angleRead( void );  // return 0-360 float angle
 
 	// SPI only functions
 	mt6701_status_t fieldStatusRead( void );
