@@ -15,14 +15,14 @@
 #define MOTOR_POLE_PAIR 7
 #define LED_PIN 2
 #define LED_TOGGLE() digitalWrite(LED_PIN, digitalRead(LED_PIN) ^ 1)
-#define RPM_Sensor_CS 9
+#define RPM_Sensor_CS 5
+#define SENSOR_SAMPLE_MS 2
 
 struct MCU_Sensors_Data {
   float lcaT = 0; float lastCur = 0; float lastVol = 0; // in s, A, V
   float lastCmd = 0; float lastRpm = 0; float lastThr = 0;  // in [0-1], r/min, N
   float lastEscTmp = 0;  // in centidegree
 };
-
 
 // ─── Access Point Configuration ───────────────────────────────────────────────
 const char* AP_SSID     = "BioInBot_Sensor";   // Hotspot SSID
@@ -41,10 +41,16 @@ MCU_Sensors_Data myData;
 MyADS1115Sensor myADC;
 MT6701RPM myRPMSensor(RPM_Sensor_CS);
 
+// --- Timer Configuration -------------------------------------------------------
+hw_timer_t *sampleTimer = nullptr;
+bool timerFlag = false;
+void IRAM_ATTR onTimerFcn() {
+  timerFlag = true;
+}
+
 bool firstMainLoop = true;
 uint32_t startRecordLt = 0;
 uint32_t lastDataSend = 0;
-uint32_t lastSensorFastUpdate = 0;
 uint32_t lastSensorSlowUpdate = 0;
 
 void setup() {
@@ -74,7 +80,6 @@ void setup() {
   init_message += myADC.init();
   delay(100);
   init_message += myRPMSensor.begin();
-
   if(init_message.length() < 2){
     Serial.println("Submodules initialized.");
   }
@@ -84,21 +89,30 @@ void setup() {
     while(1);
   }
 
+  // Setup timer for sensor info update
+  sampleTimer = timerBegin(1000000);
+  if (sampleTimer == nullptr) {
+      Serial.println("[ERROR] Timer initialization failed.");
+      while (true) delay(1000);
+  }
+  timerAttachInterrupt(sampleTimer, &onTimerFcn);
+  timerAlarm(sampleTimer, (uint64_t)SENSOR_SAMPLE_MS * 1000UL, true, 0);
+
   Serial.println("===== System Initialization Done. =====\n");
 }
 
 void loop() {
+  if (timerFlag) {
+    timerFlag = false;
+    myRPMSensor.update();  // 读角度 + 刷新 RPM 滤波器
+  }
+
   if (firstMainLoop) {
     startRecordLt = millis();
     firstMainLoop = false;
   }
   else {
     uint32_t current_time = millis();
-
-    if(current_time - lastSensorFastUpdate > 2) {
-      lastSensorFastUpdate = current_time;
-      myRPMSensor.update();
-    }
 
     if(current_time - lastSensorSlowUpdate > 147) {
       lastSensorSlowUpdate = current_time;
@@ -111,7 +125,6 @@ void loop() {
       myData.lastEscTmp = myEscData.temperature;
       myData.lastCmd = (float(receiver_channels[2]) - CMD_MIN) / (CMD_MAX - CMD_MIN);  // throttle channel is No.3, which is channel[2]
 
-      // myData.lastRpm = float(myEscData.erpm) / MOTOR_POLE_PAIR;
       myData.lastRpm = myRPMSensor.getRPM();
     }
 

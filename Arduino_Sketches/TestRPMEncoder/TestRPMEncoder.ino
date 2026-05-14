@@ -31,10 +31,7 @@
 
 /* -------------------- 采样周期 -------------------- */
 #define SAMPLE_PERIOD_MS   2    // 2 ms 采样间隔 → 最高可分辨约 0.04 RPM
-
-/* -------------------- 对象实例化 ------------------- */
-// 低通滤波 α=0.15：在 0-1500 RPM 范围内提供良好的平滑效果
-MT6701RPM motorEncoder(CS_PIN);
+#define PRINT_PERIOD_MS   100
 
 /* -------------------- 定时器相关 ------------------- */
 hw_timer_t *sampleTimer = nullptr;
@@ -45,8 +42,9 @@ void IRAM_ATTR onSampleTimer() {
     sampleFlag = true;
 }
 
-/* -------------------- 串口打印周期 ----------------- */
-#define PRINT_PERIOD_MS   200
+/* -------------------- 对象实例化 ------------------- */
+MT6701RPM motorEncoder(CS_PIN);
+
 uint32_t lastPrintMs = 0;
 
 /* ================================================== */
@@ -62,12 +60,18 @@ void setup() {
     }
     Serial.println("[INFO]  MT6701 初始化成功");
 
-    // 配置硬件定时器 0，分频 80（80 MHz / 80 = 1 µs 分辨率）
-    sampleTimer = timerBegin(0, 80, true);
-    timerAttachInterrupt(sampleTimer, &onSampleTimer, true);
-    // 每 SAMPLE_PERIOD_MS × 1000 µs 触发一次，自动重载
-    timerAlarmWrite(sampleTimer, (uint64_t)SAMPLE_PERIOD_MS * 1000UL, true);
-    timerAlarmEnable(sampleTimer);
+    // 创建定时器，计数频率 1 MHz（即每个 tick = 1 µs）
+    // timerBegin() 内部自动选择时钟源和分频系数，无需手动指定
+    sampleTimer = timerBegin(1000000);
+    if (sampleTimer == nullptr) {
+        Serial.println("[ERROR] 定时器创建失败！");
+        while (true) delay(1000);
+    }
+    // 绑定 ISR，新版 API 不再需要第三个 edge 参数
+    timerAttachInterrupt(sampleTimer, &onSampleTimer);
+    // 设置 alarm：每 SAMPLE_PERIOD_MS × 1000 tick 触发一次（= SAMPLE_PERIOD_MS ms）
+    // 参数：timer, alarm计数值, 自动重载, 重载起始值(0=从头计数)
+    timerAlarm(sampleTimer, (uint64_t)SAMPLE_PERIOD_MS * 1000UL, true, 0);
 
     Serial.println("[INFO]  采样定时器已启动，周期 = " + String(SAMPLE_PERIOD_MS) + " ms");
     Serial.println("格式: 角度(°) | 转速(RPM) | 方向 | 磁场状态");
@@ -80,7 +84,7 @@ void loop() {
         motorEncoder.update();  // 读角度 + 刷新 RPM 滤波器
     }
 
-    /* ---------- 定时打印（不影响采样节拍）---------- */
+    /* ---------- 定时打印 ---------- */
     uint32_t now = millis();
     if (now - lastPrintMs >= PRINT_PERIOD_MS) {
         lastPrintMs = now;
