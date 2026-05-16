@@ -48,7 +48,6 @@ void IRAM_ATTR onTimerFcn() {
   timerFlag = true;
 }
 
-bool firstMainLoop = true;
 uint32_t startRecordLt = 0;
 uint32_t lastDataSend = 0;
 uint32_t lastSensorSlowUpdate = 0;
@@ -99,6 +98,7 @@ void setup() {
   timerAlarm(sampleTimer, (uint64_t)SENSOR_SAMPLE_MS * 1000UL, true, 0);
 
   Serial.println("===== System Initialization Done. =====\n");
+  startRecordLt = millis();
 }
 
 void loop() {
@@ -107,33 +107,25 @@ void loop() {
     myRPMSensor.update();  // 读角度 + 刷新 RPM 滤波器
   }
 
-  if (firstMainLoop) {
-    startRecordLt = millis();
-    firstMainLoop = false;
+  uint32_t current_time = millis();
+
+  if(current_time - lastSensorSlowUpdate > 149) {
+    lastSensorSlowUpdate = current_time;
+    serial1DataEvent();
+    serial2DataEvent();
+
+    myADC.readPower(myData.lastVol, myData.lastCur);
+    myADC.readForce(myData.lastThr);
+    myData.lastEscTmp = myEscData.temperature;
+    myData.lastCmd = (float(receiver_channels[2]) - CMD_MIN) / (CMD_MAX - CMD_MIN);  // throttle channel is No.3, which is channel[2]
+    myData.lastRpm = myRPMSensor.getRPM();
   }
-  else {
-    uint32_t current_time = millis();
 
-    if(current_time - lastSensorSlowUpdate > 147) {
-      lastSensorSlowUpdate = current_time;
-      serial1DataEvent();
-      serial2DataEvent();
-
-      myADC.readPower(myData.lastVol, myData.lastCur);
-      myADC.readForce(myData.lastThr);
-
-      myData.lastEscTmp = myEscData.temperature;
-      myData.lastCmd = (float(receiver_channels[2]) - CMD_MIN) / (CMD_MAX - CMD_MIN);  // throttle channel is No.3, which is channel[2]
-
-      myData.lastRpm = myRPMSensor.getRPM();
-    }
-
-    if(current_time - lastDataSend > 150) {
-      lastDataSend = current_time;
-      myData.lcaT = (current_time - startRecordLt) / 1000.0f;
-      sendUDP(udp, myData);
-      LED_TOGGLE();
-    }
+  if(current_time - lastDataSend > 150) {
+    lastDataSend = current_time;
+    myData.lcaT = (current_time - startRecordLt) / 1000.0f;
+    sendUDP(udp, myData);
+    LED_TOGGLE();
   }
 }
 
