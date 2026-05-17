@@ -43,7 +43,7 @@ void IRAM_ATTR onSampleTimer() {
 }
 
 /* -------------------- 对象实例化 ------------------- */
-MT6701RPM motorEncoder(CS_PIN);
+MT6701RPM motorEncoder(CS_PIN, 0.3);
 
 uint32_t lastPrintMs = 0;
 
