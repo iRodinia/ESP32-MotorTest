@@ -87,23 +87,21 @@ void loop() {
 
   uint32_t current_time = millis();
 
-  if(current_time - lastSensorSlowUpdate > 149) {
+  if(current_time - lastSensorSlowUpdate > 97) {
     lastSensorSlowUpdate = current_time;
     myData.lcaT = (current_time - startRecordLt) / 1e3;
 
     myADC.readPower(myData.lastVol, myData.lastCur);
     myADC.readForce(myData.lastThr);
 
-    SPortTelemetryData escSnapshot = getEscDataSafe();
-    myData.lastEscTmp = escSnapshot.temperature;
-    float tmp_rpm = escSnapshot.erpm / MOTOR_POLE_PAIR;
+    myData.lastEscTmp = myEscData.temperature;
+    float tmp_rpm = myEscData.erpm / MOTOR_POLE_PAIR;
     myData.lastRpm = RPM_LPF_ALPHA*tmp_rpm + (1.0f-RPM_LPF_ALPHA)*myData.lastRpm;
     
-    uint16_t throttleRaw = getReceiverChannelSafe(2);
-    myData.lastCmd = (float(throttleRaw) - CMD_MIN) / (CMD_MAX - CMD_MIN);  // throttle is channel [2]
+    myData.lastCmd = (float(receiver_channels[2]) - CMD_MIN) / (CMD_MAX - CMD_MIN);  // throttle is channel [2]
   }
 
-  if(current_time - lastDataSend > 150) {
+  if(current_time - lastDataSend > 100) {
     lastDataSend = current_time;
     char resultStr[300];
     convert_data_to_string(myData, resultStr);
