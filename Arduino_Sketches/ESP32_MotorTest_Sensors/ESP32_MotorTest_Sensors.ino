@@ -27,19 +27,13 @@ struct MCU_Sensors_Data {
   // in centidegree
 };
 
-// ─── Access Point Configuration ───────────────────────────────────────────────
-const char* AP_SSID     = "BioInBot_Sensor";
-// Hotspot SSID
-const char* AP_PASSWORD = "11223344";       // Hotspot password (min 8 chars)
-const IPAddress AP_LOCAL_IP(192, 168, 9, 1);
-const IPAddress AP_GATEWAY(192, 168, 9, 1);
-const IPAddress AP_SUBNET(255, 255, 255, 0);
-// ─── UDP Configuration ─────────────────────────────────────────────────────────
-// Broadcast to all clients on the AP subnet
-const IPAddress UDP_BROADCAST_IP(192, 168, 9, 255);
-const uint16_t  UDP_PORT = 8888;
+void convert_data_to_string(const MCU_Sensors_Data& data, char* resultStr) {
+  sprintf(resultStr, "%.2f,%.2f,%.2f,%.3f,%.1f,%.2f,%.2f",
+    data.lcaT, data.lastCur, data.lastVol,
+    data.lastCmd, data.lastRpm, data.lastThr, data.lastEscTmp
+  );
+}
 
-WiFiUDP udp;
 MCU_Sensors_Data myData;
 MyADS1115Sensor myADC;
 MT6701RPM myRPMSensor(RPM_Sensor_CS);
@@ -76,18 +70,6 @@ void setup() {
   init_message += initAllSerials();
   Serial.println("\n===== ESP32 Motor Seneors (AP) =====");
 
-  WiFi.mode(WIFI_AP);
-  WiFi.softAPConfig(AP_LOCAL_IP, AP_GATEWAY, AP_SUBNET);
-  if (WiFi.softAP(AP_SSID, AP_PASSWORD)) {
-    Serial.printf("[WiFi] AP started. SSID: %s  IP: %s\n",
-                  AP_SSID, WiFi.softAPIP().toString().c_str());
-  } else {
-    Serial.println("[WiFi] ERROR: Failed to start AP. Halting.");
-    while (1);
-  }
-  udp.begin(UDP_PORT);
-  Serial.printf("[UDP]  Listening on port %d, broadcasting to %s\n",
-                UDP_PORT, UDP_BROADCAST_IP.toString().c_str());
   pinMode(LED_PIN, OUTPUT);
   digitalWrite(LED_PIN, LOW);
   Wire.begin();
@@ -131,14 +113,13 @@ void setup() {
 }
 
 void loop() {
-  // 原本在这里的定时轮询 myRPMSensor.update() 已被安全移动至 Core 0 的硬件中断驱动任务中
+  serial1DataEvent();
+  serial2DataEvent();
 
   uint32_t current_time = millis();
   if(current_time - lastSensorSlowUpdate > 149) {
     lastSensorSlowUpdate = current_time;
-    serial1DataEvent();
-    serial2DataEvent();
-
+    
     // 以下读取逻辑可能引入大延时(如 ADS1115 转换阻塞约 25ms)，但现在它只能卡住 Core 1 的 loop
     myADC.readPower(myData.lastVol, myData.lastCur);
     myADC.readForce(myData.lastThr);
@@ -151,14 +132,11 @@ void loop() {
 
   if(current_time - lastDataSend > 150) {
     lastDataSend = current_time;
-    myData.lcaT = (current_time - startRecordLt) / 1000.0f;
-    sendUDP(udp, myData);
+    char resultStr[300];
+    convert_data_to_string(myData, resultStr);
+    Serial.println(resultStr);
+    Serial.flush();
+    
     LED_TOGGLE();
   }
-}
-
-void sendUDP(WiFiUDP &udp, MCU_Sensors_Data &_data) {
-  udp.beginPacket(UDP_BROADCAST_IP, UDP_PORT);
-  udp.write((const uint8_t*)&_data, sizeof(MCU_Sensors_Data));  // raw binary
-  udp.endPacket();
 }
