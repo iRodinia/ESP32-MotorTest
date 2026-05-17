@@ -13,15 +13,15 @@
 #endif
 
 /** 低通滤波系数 α（0 < α ≤ 1）。
- *  α = 1 表示不滤波，直接输出原始转速；
- *  α 越小，滤波越强，响应越慢。
- *  推荐值：0.1 ~ 0.3（中等平滑）。 */
+ * α = 1 表示不滤波，直接输出原始转速；
+ * α 越小，滤波越强，响应越慢。
+ * 推荐值：0.1 ~ 0.3（中等平滑）。 */
 #ifndef MT6701RPM_LPF_ALPHA
 #define MT6701RPM_LPF_ALPHA  0.5f
 #endif
 
 /** 最小有效采样间隔（µs）。
- *  若两次 update() 调用间隔小于此值，则跳过本次计算以避免除零或噪声放大。 */
+ * 若两次 update() 调用间隔小于此值，则跳过本次计算以避免除零或噪声放大。 */
 #ifndef MT6701RPM_MIN_DT_US
 #define MT6701RPM_MIN_DT_US  500UL
 #endif
@@ -29,15 +29,7 @@
 /* ------------------------------------------------------------------ */
 
 /**
- * @brief MT6701 角度 + 转速测量类
- *
- * 使用方法（最简）：
- * @code
- *   MT6701RPM motor(9);          // CS 引脚
- *   motor.begin();               // 初始化 SPI
- *   motor.update();              // 在 loop() 或定时器中周期调用
- *   float rpm = motor.getRPM(); // 获取转速
- * @endcode
+ * @brief MT6701 角度 + 转速测量类（已优化支持多核并发读取）
  */
 class MT6701RPM {
 public:
@@ -87,7 +79,7 @@ public:
 
     /**
      * @brief  读取最新角度并更新转速估算。
-     *         建议以固定周期（1 ~ 5 ms）调用，可放在 loop() 或硬件定时器 ISR 中。
+     * 建议以固定周期（1 ~ 5 ms）调用，可放在 loop() 或硬件定时器 ISR 中。
      *
      * @note   若两次调用间隔 < MT6701RPM_MIN_DT_US，本次计算将被跳过。
      */
@@ -131,7 +123,7 @@ public:
     float getAngle() const { return _angleRaw; }
 
     /**
-     * @brief  获取经低通滤波后的转速
+     * @brief  获取经低通滤波后的转速（跨核读取安全）
      * @return 转速（RPM），正值为正转，负值为反转
      */
     float getRPM() const { return _rpmFiltered; }
@@ -144,8 +136,8 @@ public:
     /**
      * @brief  获取旋转方向
      * @return  1 = 正转（角度递增方向）
-     *         -1 = 反转
-     *          0 = 静止（|RPM| < deadband）
+     * -1 = 反转
+     * 0 = 静止（|RPM| < deadband）
      * @param  deadbandRPM  认为静止的转速门限，默认 1 RPM
      */
     int getDirection(float deadbandRPM = 1.0f) const {
@@ -189,11 +181,12 @@ private:
     float        _alpha;
     float        _wrapThreshold;
 
-    float        _angleRaw;
-    float        _rpmFiltered;
-    float        _lastAngle;
-    uint32_t     _lastTimestamp;
-    bool         _initialized;
+    // 关键修改：加上 volatile 确保跨核并发读取时的数据即时可见性
+    volatile float        _angleRaw;
+    volatile float        _rpmFiltered;
+    volatile float        _lastAngle;
+    volatile uint32_t     _lastTimestamp;
+    bool                  _initialized;
 
     MT6701       _encoder;
 };

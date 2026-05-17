@@ -19,18 +19,21 @@
 #define SENSOR_SAMPLE_MS 2
 
 struct MCU_Sensors_Data {
-  float lcaT = 0; float lastCur = 0; float lastVol = 0; // in s, A, V
-  float lastCmd = 0; float lastRpm = 0; float lastThr = 0;  // in [0-1], r/min, N
-  float lastEscTmp = 0;  // in centidegree
+  float lcaT = 0;
+  float lastCur = 0; float lastVol = 0; // in s, A, V
+  float lastCmd = 0;
+  float lastRpm = 0; float lastThr = 0;  // in [0-1], r/min, N
+  float lastEscTmp = 0;
+  // in centidegree
 };
 
 // ─── Access Point Configuration ───────────────────────────────────────────────
-const char* AP_SSID     = "BioInBot_Sensor";   // Hotspot SSID
+const char* AP_SSID     = "BioInBot_Sensor";
+// Hotspot SSID
 const char* AP_PASSWORD = "11223344";       // Hotspot password (min 8 chars)
 const IPAddress AP_LOCAL_IP(192, 168, 9, 1);
 const IPAddress AP_GATEWAY(192, 168, 9, 1);
 const IPAddress AP_SUBNET(255, 255, 255, 0);
-
 // ─── UDP Configuration ─────────────────────────────────────────────────────────
 // Broadcast to all clients on the AP subnet
 const IPAddress UDP_BROADCAST_IP(192, 168, 9, 255);
@@ -41,11 +44,27 @@ MCU_Sensors_Data myData;
 MyADS1115Sensor myADC;
 MT6701RPM myRPMSensor(RPM_Sensor_CS);
 
-// --- Timer Configuration -------------------------------------------------------
+// --- Task & Timer Configuration -------------------------------------------------------
 hw_timer_t *sampleTimer = nullptr;
-bool timerFlag = false;
+TaskHandle_t rpmTaskHandle = nullptr;  // Core 0 任务句柄
+
+// 硬件定时器中断服务函数 (ISR)
 void IRAM_ATTR onTimerFcn() {
-  timerFlag = true;
+  BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+  // 向 Core 0 的 RPM 采样任务发送轻量级通知
+  vTaskNotifyGiveFromISR(rpmTaskHandle, &xHigherPriorityTaskWoken);
+  if (xHigherPriorityTaskWoken) {
+    portYIELD_FROM_ISR();
+  }
+}
+
+// 运行在 Core 0 上的高性能独立采样任务
+void rpmTask(void *pvParameters) {
+  for (;;) {
+    // 挂起并死等来自硬件定时器的高精度中断通知
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+    myRPMSensor.update(); // 读角度 + 刷新 RPM 滤波器
+  }
 }
 
 uint32_t startRecordLt = 0;
@@ -69,7 +88,6 @@ void setup() {
   udp.begin(UDP_PORT);
   Serial.printf("[UDP]  Listening on port %d, broadcasting to %s\n",
                 UDP_PORT, UDP_BROADCAST_IP.toString().c_str());
-
   pinMode(LED_PIN, OUTPUT);
   digitalWrite(LED_PIN, LOW);
   Wire.begin();
@@ -88,7 +106,18 @@ void setup() {
     while(1);
   }
 
-  // Setup timer for sensor info update
+  // 关键修改：在硬件驱动准备就绪后，创建高优先级任务并绑定至 Core 0
+  xTaskCreatePinnedToCore(
+    rpmTask,             /* 任务函数 */
+    "RPM_Task",          /* 任务名称 */
+    4096,                /* 栈空间大小 */
+    NULL,                /* 传入参数 */
+    3,                   /* 任务优先级（设定为较高水平） */
+    &rpmTaskHandle,      /* 传出句柄 */
+    0                    /* 绑定至第二个核心 Core 0 */
+  );
+
+  // Setup timer for sensor info update (保持你原有的 ESP32 Arduino SDK v3.x 语法)
   sampleTimer = timerBegin(1000000);
   if (sampleTimer == nullptr) {
       Serial.println("[ERROR] Timer initialization failed.");
@@ -102,22 +131,21 @@ void setup() {
 }
 
 void loop() {
-  if (timerFlag) {
-    timerFlag = false;
-    myRPMSensor.update();  // 读角度 + 刷新 RPM 滤波器
-  }
+  // 原本在这里的定时轮询 myRPMSensor.update() 已被安全移动至 Core 0 的硬件中断驱动任务中
 
   uint32_t current_time = millis();
-
   if(current_time - lastSensorSlowUpdate > 149) {
     lastSensorSlowUpdate = current_time;
     serial1DataEvent();
     serial2DataEvent();
 
+    // 以下读取逻辑可能引入大延时(如 ADS1115 转换阻塞约 25ms)，但现在它只能卡住 Core 1 的 loop
     myADC.readPower(myData.lastVol, myData.lastCur);
     myADC.readForce(myData.lastThr);
     myData.lastEscTmp = myEscData.temperature;
     myData.lastCmd = (float(receiver_channels[2]) - CMD_MIN) / (CMD_MAX - CMD_MIN);  // throttle channel is No.3, which is channel[2]
+    
+    // 从 Core 1 异步提取 Core 0 实时计算出的最新 RPM 数据
     myData.lastRpm = myRPMSensor.getRPM();
   }
 
