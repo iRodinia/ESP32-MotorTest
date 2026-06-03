@@ -8,8 +8,8 @@
 #include "Serial_manager.h"
 #include "My_ads1115_sensor.h"
 
-#define LED_PIN 2
-#define LED_TOGGLE() digitalWrite(LED_PIN, digitalRead(LED_PIN) ^ 1)
+#define LED_PIN 2c:\Users\cz\Documents\ESP32-MotorTest\Arduino_Sketches\ESP32_MotorTest_Up\12864lib\12864_display.h
+#define LED_TOGGLE() digitalWrite(LED_PIN, digitalRead(LED_PIN) ^ 1)c:\Users\cz\Documents\ESP32-MotorTest\Arduino_Sketches\ESP32_MotorTest_Up\12864lib\12864_display.h
 
 #define MOTOR_POLE_PAIR 7
 
