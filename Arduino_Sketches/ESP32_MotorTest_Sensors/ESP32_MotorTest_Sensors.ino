@@ -40,9 +40,9 @@ uint32_t lastSensorSlowUpdate = 0;
 
 void SerialTask(void *pvParameters) {
   for (;;) {
-    serial1DataEvent();
-    serial2DataEvent();
-    vTaskDelay(pdMS_TO_TICKS(1)); 
+    // serial1DataEvent();
+    // serial2DataEvent();
+    vTaskDelay(pdMS_TO_TICKS(10)); 
   }
 }
 
@@ -105,7 +105,7 @@ void loop() {
     lastDataSend = current_time;
     char resultStr[300];
     convert_data_to_string(myData, resultStr);
-    Serial.println(resultStr);
+    // Serial.println(resultStr);
     Serial.flush();
     
     LED_TOGGLE();

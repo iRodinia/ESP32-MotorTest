@@ -10,7 +10,7 @@
 
 // serial 0: usb serial
 // serial 1: tx-25, rx-26, only rx connect to the ESC loopback
-//   baudrate 115200
+//   baudrate 57600
 // serial 2: tx-14, rx-27, only rx connect to the Telemetry SBUS/UART
 //   baudrate 1000
 
@@ -92,9 +92,9 @@ uint8_t calculateCheckSum(uint8_t* data, uint8_t length) {
 }
 
 void parseSerial1Data() {
-  // Serial.printf("%x %x %x %x %x %x %x %x %x \n", serial1_buffer[0], serial1_buffer[1], serial1_buffer[2],
-  //   serial1_buffer[3], serial1_buffer[4], serial1_buffer[5], serial1_buffer[6], serial1_buffer[7],
-  //   serial1_buffer[8]);
+  Serial.printf("%x %x %x %x %x %x %x %x %x \n", serial1_buffer[0], serial1_buffer[1], serial1_buffer[2],
+    serial1_buffer[3], serial1_buffer[4], serial1_buffer[5], serial1_buffer[6], serial1_buffer[7],
+    serial1_buffer[8]);
 
   if (serial1_buffer_index < SPORT_FRAME_SIZE || 
       serial1_buffer[0] != DATA_FRAME_HEADER || 

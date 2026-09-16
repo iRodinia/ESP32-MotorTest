@@ -39,9 +39,21 @@ A Repository for BLDC Test and Data Collection with ESP32 Controller
 
   Click "Read Setup" and wait for the configurations to be loaded. Then you can make adjustments and click "Write Setup" to refresh the ESC. The descriptions of these setups can be found at "BLHeli_32_Info->manual.pdf".
 
-  **Important**: If you want to collect the voltage, current, temperature or rotation speed from the ESC, make sure to turn "Auto Telemetry" to "On"! (Then the ESC will send back the data once every 32ms) The data is sent through the "Tx" port of the ESC.
+  **Important**: If you want to collect the voltage, current, temperature or rotation speed from the ESC, make sure to turn "Auto Telemetry" to "On"! (Then the ESC will send back the data once every 32ms) The data is sent through the "Tx" port of the ESC. (See the next subsection for more details)
 
   If multiple ESCs are used, all the "Tx"s can be connected together to one "Rx" port on the Autopilot or the Microcontroller.
+
+## BLHeli32 ESC Telemetry Protocol Selection
+
+  If you want the ESC to send its sensor data back to your receiver or your MCU, there are **2** ways to do that. Each method requires the **Auto Telemetry** to be switched on. 
+  
+  First, you connect the "Tx" port of the ESC to the S.Port of your receiver, you must **turn on the "S.Port Physical ID" in the ESC settings**. Then the data will be sent based on the S.Port protocol. 
+  
+  Second, you connect the "Tx" of ESC to your MCU only, expecting a regular data flow. Then you must **turn off the "S.Port Physical ID"** and read the data following the KISS protocol.
+
+  - For S.Port protocol, please refer to [this link](https://deepwiki.com/marhar/FrSkySportTelemetry/2.2-frame-structure-and-protocol-constants). The S.Port protocol has a baudrate of **57600** and **inverted** signal. The data will only be sent when your receiver (the master device on the wire) send a pooling request first.
+
+  - For KISS protocol, please refer to [this file](Tools/KISS_telemetry_protocol.pdf). The KISS data has a baudrate of **115200** and **normal** signal. The data are sent on a regular time basis even if no device is listening.
 
 ## ESP32 Settings
 
@@ -75,4 +87,9 @@ Overview of the ESP32-Wroom-DA module:
 
   ![arduino_ide_settings](README_resources/arduino_ide_settings.png "Picture of the Arduino IDE settings")
 
-  
+
+## Force Sensor Settings
+
+We use the **AD620** module to amplify the micro-voltage signal from the force sensor itself, then use **ADS1115** to read the voltage signal and transfer to the force readings.
+
+Since the required amplification factor is $\approx440=3.3/7.5\times10^3$, we need to manually change the resistor on AD620 to **$100\Omega$**, which will result in an amplification factor of 495. The maximum voltage output (with 5V input for the force sensor) is 3.712V.

@@ -12,7 +12,7 @@ DShotRMT myMotor(MOTOR_CMD_PIN, DSHOT300);
 
 void setup()
 {
-    Serial.begin(115200);
+    Serial.begin(9600);
     delay(50);
     Serial1.begin(115200, SERIAL_8N1, SERIAL1_RX, SERIAL1_TX);
     delay(50);
