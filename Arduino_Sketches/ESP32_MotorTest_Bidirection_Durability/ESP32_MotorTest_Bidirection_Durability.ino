@@ -23,6 +23,7 @@ float rpm_estm = 0.0;
 uint16_t low_power_cnt = 0;
 bool low_power_flag = false;
 
+uint32_t startLT = 0;
 uint32_t lastADCUpdate = 0;
 uint32_t lastPrint = 0;
 
@@ -128,6 +129,8 @@ void setup()
         Serial.println("Halting.");
         while(1);
     }
+
+    startLT = millis();
 }
 
 void loop()
@@ -135,16 +138,17 @@ void loop()
     myScreen.updateData(volt_reading, motorDShotVal, rpm_estm, force_reading);
     myScreen.refresh();
 
+    static float currentT = 0.0;
     uint32_t localT = millis();
-    if (localT - lastPrint >= 200) {
+    if (localT - lastPrint >= 80) {
         lastPrint = localT;
+        currentT = (localT - startLT) / 1000.0;
         if (low_power_flag) {
             Serial.println("Low Power.");
-            Serial2.println("Low Power.");
         }
         else {
-            Serial.printf("%.2f,%d,%.2f,%.2f\n", volt_reading, motorDShotVal, rpm_estm, force_reading);
-            Serial2.printf("%.2f,%d,%.2f,%.2f\n", volt_reading, motorDShotVal, rpm_estm, force_reading);
+            Serial.printf("%.2f,%.2f,%d,%.2f,%.2f\n", currentT, volt_reading, motorDShotVal, rpm_estm, force_reading);
+            Serial2.printf("%.2f,%.2f,%d,%.2f,%.2f\n", currentT, volt_reading, motorDShotVal, rpm_estm, force_reading);
         }
     }
 }
@@ -159,5 +163,4 @@ void parseSerial0Cmd(String command) {
     else motorDShotVal = map(target_speed, -1, -1000, 48, 1047);
 
     Serial.printf("Set throttle command to %d (/±1000)\n", motorDShotVal);
-    Serial2.printf("Set throttle command to %d (/±1000)\n", motorDShotVal);
 }
